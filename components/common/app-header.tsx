@@ -40,7 +40,7 @@ export function AppHeader() {
           </button>
 
           {/* Step navigation */}
-          <nav className="flex items-center gap-1 rounded-full border border-border/70 bg-secondary/40 p-1 backdrop-blur-sm">
+          <nav className="orbit-border flex items-center gap-1 rounded-full border border-border/70 bg-secondary/40 p-1 backdrop-blur-sm">
             {navItems.map((item, i) => {
               const active = pathname?.startsWith(item.path);
               const done = activeIndex > i;

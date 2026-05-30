@@ -269,6 +269,39 @@
   pointer-events: none;
 }
 
+/* A comet of light that travels continuously around an element's border.
+   Works on pills/rounded-rects (animates the conic angle, not a transform). */
+@property --orbit-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.orbit-border {
+  position: relative;
+}
+.orbit-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--orbit-angle),
+    transparent 0deg,
+    color-mix(in oklab, var(--primary) 60%, transparent) 34deg,
+    var(--primary) 52deg,
+    #ffffff 60deg,
+    transparent 74deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 4px var(--primary));
+  animation: orbit-angle 4.4s linear infinite;
+  pointer-events: none;
+}
+
 /* Soft moon-glow halo for focal elements */
 .moon-glow {
   box-shadow:
@@ -308,6 +341,10 @@
 
 @keyframes orbit {
   to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-angle {
+  to { --orbit-angle: 360deg; }
 }
 
 @keyframes breathe {
@@ -359,7 +396,8 @@
   .animate-rise,
   .stagger > *,
   .shimmer,
-  .orbit-glow::after {
+  .orbit-glow::after,
+  .orbit-border::before {
     animation: none !important;
     opacity: 1;
   }
