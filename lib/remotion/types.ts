@@ -18,11 +18,22 @@ export interface SleepRenderScene {
   durationInFrames: number;
   /** Ken Burns direction; alternates scene-to-scene for gentle variety. */
   zoom: "in" | "out";
-  /**
-   * Optional short, calming line drawn from the script snippet. Only a few
-   * scenes carry one (see GENTLE_LINE_EVERY) to keep the sleep mood.
-   */
-  caption?: string;
+}
+
+/**
+ * One AI-written, bottom-left caption scheduled on the timeline. A handful are
+ * spread 3–5 minutes apart across the video (planned server-side in
+ * lib/scene-engine/story-text.ts), each grounded in the moment narrated then.
+ */
+export interface StoryTextOverlay {
+  /** Short calming phrase (≤ ~5 words). */
+  text: string;
+  /** Absolute start position on the timeline, in frames. */
+  startFrame: number;
+  /** How long it stays on screen (incl. fades), in frames. */
+  durationInFrames: number;
+  /** Fade in/out length, in frames, so it never pops on/off. */
+  fadeFrames: number;
 }
 
 /**
@@ -68,7 +79,11 @@ export interface SleepVideoInputProps {
   height: number;
   /** Total timeline length = round(audioDurationSec * fps). */
   durationInFrames: number;
-  /** Optional title shown on a soft fade-in card at the very start. */
+  /**
+   * Title shown on a soft fade-in card at the very start — derived from the
+   * script by AI (lib/scene-engine/story-text.ts), not entered by hand. Also
+   * becomes the S3 output filename (see lambda.ts `slug`).
+   */
   title?: string;
   scenes: SleepRenderScene[];
   /** Crossfade overlap between consecutive scenes, in frames. */
@@ -79,4 +94,9 @@ export interface SleepVideoInputProps {
    * pattern-matching). Looped to fill the whole timeline.
    */
   overlays?: SleepOverlay[];
+  /**
+   * AI-written bottom-left captions, spread a few minutes apart across the
+   * video. Planned server-side; empty/omitted for very short clips.
+   */
+  textOverlays?: StoryTextOverlay[];
 }

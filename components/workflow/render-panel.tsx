@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useSessionStore } from "@/lib/store";
 import type { RenderJob } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NavigationButtons } from "@/components/common/navigation-buttons";
 import {
@@ -61,7 +59,6 @@ export function RenderPanel() {
     _hydrated,
   } = useSessionStore();
 
-  const [title, setTitle] = useState("");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -154,7 +151,6 @@ export function RenderPanel() {
           scenes: storyboardScenes,
           audioKey: audio.key,
           audioDurationSec: audio.durationSec,
-          title,
         }),
       });
       const data = await res.json();
@@ -162,7 +158,7 @@ export function RenderPanel() {
       addRender({
         renderId: data.renderId,
         bucketName: data.bucketName,
-        title: title.trim() || "Untitled",
+        title: data.title || "Untitled",
         createdAt: Date.now(),
         status: "rendering",
         progress: 0,
@@ -222,18 +218,10 @@ export function RenderPanel() {
         </CardContent>
       </Card>
 
-      <div className="space-y-2">
-        <Label htmlFor="story-title">Title card (optional)</Label>
-        <Input
-          id="story-title"
-          placeholder="e.g. A Quiet Night in the Old Forest"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          Shown as a soft fade-in at the very start. Leave blank for pure imagery.
-        </p>
-      </div>
+      <p className="text-center text-xs text-muted-foreground">
+        The title card and on-screen captions are written automatically from
+        your script when you render.
+      </p>
 
       <div className="flex flex-col items-center gap-3">
         <Button

@@ -5,7 +5,7 @@ import { Stars } from "./effects/Stars";
 import { OverlayVideos } from "./effects/OverlayVideos";
 import { GrainVignette } from "./effects/GrainVignette";
 import { TitleCard } from "./text/TitleCard";
-import { GentleLine } from "./text/GentleLine";
+import { StoryCaptions } from "./text/StoryCaptions";
 
 /**
  * One crossfading image layer. It starts at its scene's startFrame and lingers
@@ -46,6 +46,7 @@ export const SleepStory: React.FC<SleepVideoInputProps> = ({
   scenes,
   crossfadeFrames,
   overlays = [],
+  textOverlays = [],
 }) => {
   const last = scenes.length - 1;
   return (
@@ -78,21 +79,9 @@ export const SleepStory: React.FC<SleepVideoInputProps> = ({
       {/* Film grain + vignette sit above the imagery. */}
       <GrainVignette />
 
-      {/* Rare gentle lines, each living inside its scene's window. */}
-      {scenes.map((s) =>
-        s.caption ? (
-          <Sequence
-            key={`cap-${s.id}`}
-            from={s.startFrame}
-            durationInFrames={s.durationInFrames}
-          >
-            <GentleLine
-              text={s.caption}
-              sceneDurationInFrames={s.durationInFrames}
-            />
-          </Sequence>
-        ) : null,
-      )}
+      {/* AI-written bottom-left captions, spread minutes apart. Above the grain
+          so they stay legible. */}
+      <StoryCaptions overlays={textOverlays} />
 
       {/* Opening title. */}
       {title ? (

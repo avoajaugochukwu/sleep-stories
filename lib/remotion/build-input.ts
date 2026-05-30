@@ -93,12 +93,10 @@ export const RENDER_HEIGHT = 1080;
 // Soft blend between scenes (no hard cut, no slide).
 const CROSSFADE_SEC = 1.2;
 
-// Show a gentle on-screen line only every Nth scene so text stays rare.
-const GENTLE_LINE_EVERY = 6;
-
 /**
  * Turn a verbatim script snippet into a short, calm on-screen line: first
- * clause/sentence, trimmed, no trailing punctuation, capped length.
+ * clause/sentence, trimmed, no trailing punctuation, capped length. Used as a
+ * fallback caption in story-text.ts when the AI pass is unavailable.
  */
 export function toGentleLine(snippet: string, maxChars = 64): string {
   const cleaned = snippet.replace(/\s+/g, " ").trim();
@@ -127,9 +125,8 @@ export function buildSleepVideoInput(opts: {
   scenes: StoryboardScene[];
   audioUrl: string;
   audioDurationSec: number;
-  title?: string;
 }): SleepVideoInputProps {
-  const { scenes, audioUrl, audioDurationSec, title } = opts;
+  const { scenes, audioUrl, audioDurationSec } = opts;
 
   const fps = RENDER_FPS;
   const totalFrames = Math.max(1, Math.round(audioDurationSec * fps));
@@ -142,7 +139,6 @@ export function buildSleepVideoInput(opts: {
       width: RENDER_WIDTH,
       height: RENDER_HEIGHT,
       durationInFrames: totalFrames,
-      title,
       scenes: [],
       crossfadeFrames: Math.round(CROSSFADE_SEC * fps),
       overlays: scheduleOverlays(totalFrames, fps),
@@ -193,15 +189,12 @@ export function buildSleepVideoInput(opts: {
   ordered.forEach((s, i) => {
     const dur = Math.max(1, floored[i]);
     if (s.image_url) lastImage = s.image_url;
-    const showLine =
-      i > 0 && i % GENTLE_LINE_EVERY === 0 && !!s.script_snippet?.trim();
     renderScenes.push({
       id: `scene-${s.scene_number}`,
       imageUrl: s.image_url || lastImage,
       startFrame: cursor,
       durationInFrames: dur,
       zoom: i % 2 === 0 ? "in" : "out",
-      caption: showLine ? toGentleLine(s.script_snippet) || undefined : undefined,
     });
     cursor += dur;
   });
@@ -212,7 +205,6 @@ export function buildSleepVideoInput(opts: {
     width: RENDER_WIDTH,
     height: RENDER_HEIGHT,
     durationInFrames: totalFrames,
-    title,
     scenes: renderScenes,
     crossfadeFrames: Math.round(CROSSFADE_SEC * fps),
     overlays: scheduleOverlays(totalFrames, fps),

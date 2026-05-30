@@ -21,8 +21,6 @@ const scenes = sceneSeconds.map((sec, i) => {
     startFrame,
     durationInFrames,
     zoom: (i % 2 === 0 ? "in" : "out") as "in" | "out",
-    caption:
-      i === 3 ? "drifting somewhere quiet and far away" : undefined,
   };
 });
 
@@ -57,6 +55,16 @@ export const sleepStoryDefaults: SleepVideoInputProps = {
       playbackRate: 0.3,
       opacity: 0.24,
       flip: true,
+    },
+  ],
+  // Preview-only sample; real renders derive these from the script via AI
+  // (lib/scene-engine/story-text.ts).
+  textOverlays: [
+    {
+      text: "drifting somewhere quiet",
+      startFrame: 12 * fps,
+      durationInFrames: Math.round(7.7 * fps),
+      fadeFrames: Math.round(1.6 * fps),
     },
   ],
 };
