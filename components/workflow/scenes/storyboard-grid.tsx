@@ -164,7 +164,7 @@ export function StoryboardGrid() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60">
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <ImageIcon className="h-8 w-8 mb-1" />
                     <span className="text-xs">No image</span>
                   </div>

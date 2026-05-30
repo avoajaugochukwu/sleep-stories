@@ -44,10 +44,15 @@ export async function startSleepRender(
     throw new Error("REMOTION_SERVE_URL not set — run `npm run deploy:site`");
   }
 
+  // Force OUR dedicated bucket. Without this, Remotion would discover the
+  // region's other (production) Remotion bucket and refuse ("multiple buckets").
+  const forceBucketName = process.env.REMOTION_RENDER_BUCKET;
+
   const res = await renderMediaOnLambda({
     region: region as Parameters<typeof renderMediaOnLambda>[0]["region"],
     functionName,
     serveUrl,
+    ...(forceBucketName ? { forceBucketName } : {}),
     composition: process.env.REMOTION_COMPOSITION_ID ?? "SleepStory",
     inputProps: input,
     codec: "h264",

@@ -26,7 +26,7 @@
   --secondary-foreground: #d4d8ec;
 
   --muted: #161a2b;
-  --muted-foreground: #828bab;
+  --muted-foreground: #c3cae6;
 
   /* Lamplight — warm gold counterpoint to the cool night */
   --accent: #e8b974;
@@ -37,8 +37,8 @@
 
   --success: #6fe0b0;
 
-  --border: #232a40;
-  --input: #1a2034;
+  --border: #313a57;
+  --input: #1f273e;
   --ring: #8e9dff;
   --radius: 0.95rem;
 

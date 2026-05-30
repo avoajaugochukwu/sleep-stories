@@ -10,7 +10,7 @@ type Star = {
   period: number; // frames per twinkle cycle
 };
 
-const STAR_COUNT = 70;
+const STAR_COUNT = 110;
 
 /**
  * Sparse, slowly twinkling star field with a barely-there downward drift.
@@ -28,7 +28,7 @@ export const Stars: React.FC = () => {
       x: Math.random() * 100,
       y: Math.random() * 100,
       size: 1 + Math.random() * 2.2,
-      baseOpacity: 0.2 + Math.random() * 0.55,
+      baseOpacity: 0.35 + Math.random() * 0.6,
       phase: Math.random() * Math.PI * 2,
       period: 90 + Math.random() * 150,
     }));
@@ -38,7 +38,7 @@ export const Stars: React.FC = () => {
   const driftY = (frame / Math.max(1, durationInFrames)) * 3;
 
   return (
-    <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.6 }}>
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.85 }}>
       {stars.map((s, i) => {
         const twinkle =
           0.45 + 0.55 * Math.sin((frame / s.period) * Math.PI * 2 + s.phase);

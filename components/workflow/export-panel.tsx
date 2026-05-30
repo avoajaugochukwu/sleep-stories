@@ -109,7 +109,7 @@ export function ExportPanel() {
             <div key={index} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
                 <item.icon className={`h-5 w-5 ${
-                  item.available ? 'text-success' : 'text-muted-foreground/50'
+                  item.available ? 'text-success' : 'text-muted-foreground'
                 }`} />
                 <div>
                   <p className={`text-sm font-medium ${

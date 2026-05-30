@@ -24,7 +24,7 @@ export default function ExportPage() {
           <ExportPanel />
         </div>
 
-        <footer className="pt-2 text-center text-xs text-muted-foreground/70">
+        <footer className="pt-2 text-center text-xs text-muted-foreground">
           Session-only · nothing is saved · export before you leave
         </footer>
       </div>

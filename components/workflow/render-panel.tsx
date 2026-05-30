@@ -409,7 +409,7 @@ function Row({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <Icon className={`h-5 w-5 ${ok ? "text-success" : "text-muted-foreground/50"}`} />
+        <Icon className={`h-5 w-5 ${ok ? "text-success" : "text-muted-foreground"}`} />
         <div>
           <p className="text-sm font-medium">{label}</p>
           <p className="text-xs text-muted-foreground">{detail}</p>

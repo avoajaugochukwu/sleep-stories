@@ -2,8 +2,7 @@ import { AbsoluteFill, Audio, interpolate, Sequence, useCurrentFrame } from "rem
 import type { SleepVideoInputProps } from "../lib/remotion/types";
 import { KenBurnsImage } from "./scenes/KenBurnsImage";
 import { Stars } from "./effects/Stars";
-import { Clouds } from "./effects/Clouds";
-import { LightRays } from "./effects/LightRays";
+import { OverlayVideos } from "./effects/OverlayVideos";
 import { GrainVignette } from "./effects/GrainVignette";
 import { TitleCard } from "./text/TitleCard";
 import { GentleLine } from "./text/GentleLine";
@@ -46,6 +45,7 @@ export const SleepStory: React.FC<SleepVideoInputProps> = ({
   title,
   scenes,
   crossfadeFrames,
+  overlays = [],
 }) => {
   const last = scenes.length - 1;
   return (
@@ -69,10 +69,11 @@ export const SleepStory: React.FC<SleepVideoInputProps> = ({
         </Sequence>
       ))}
 
-      {/* Ambient motion layers — continuous across the whole piece. */}
-      <Clouds />
+      {/* Ambient motion layers — continuous across the whole piece. Real
+          footage overlays (screen-blended) carry the drifting texture; the
+          procedural star field stays on top for sparkle. */}
+      <OverlayVideos overlays={overlays} />
       <Stars />
-      <LightRays />
 
       {/* Film grain + vignette sit above the imagery. */}
       <GrainVignette />

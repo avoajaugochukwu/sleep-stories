@@ -34,7 +34,7 @@ export function AppHeader() {
               <span className="font-display text-lg font-medium tracking-tight text-aurora">
                 Sleep Stories
               </span>
-              <span className="mt-1 text-[11px] uppercase tracking-[0.28em] text-muted-foreground/80">
+              <span className="mt-1 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
                 Nocturne Studio
               </span>
             </span>
@@ -63,7 +63,7 @@ export function AppHeader() {
                         ? 'text-primary'
                         : done
                         ? 'text-accent'
-                        : 'text-muted-foreground/60'
+                        : 'text-muted-foreground'
                     )}
                   >
                     {item.step}

@@ -1,98 +1,138 @@
 import path from "node:path";
-import { deploySite, getOrCreateBucket } from "@remotion/lambda";
+import { deploySite } from "@remotion/lambda";
 import {
-  GetBucketCorsCommand,
-  GetBucketLifecycleConfigurationCommand,
+  CreateBucketCommand,
+  DeletePublicAccessBlockCommand,
+  HeadBucketCommand,
   PutBucketCorsCommand,
   PutBucketLifecycleConfigurationCommand,
+  PutBucketOwnershipControlsCommand,
+  PutBucketPolicyCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 
-// Same region as production. We share the region's single Remotion bucket with
-// remotion-test-2 (Remotion enforces one bucket per region), but deploy our own
-// site path (sites/sleep-stories/) and our own Lambda. Because the bucket is
-// SHARED, every bucket-level change below MERGES with prod's config — it never
-// replaces it.
+// Our OWN dedicated bucket — nothing is shared with production. Name must start
+// with "remotionlambda-" (a Remotion requirement) and is globally unique.
 const region = process.env.AWS_REGION ?? "us-west-2";
 const siteName = process.env.REMOTION_SITE_NAME ?? "sleep-stories";
+const bucketName =
+  process.env.REMOTION_RENDER_BUCKET ?? "remotionlambda-uswest2-sleepstories";
 
 const client = new S3Client({ region });
 
-// CORS so the browser can PUT narration audio straight to S3. Prod doesn't use
-// browser uploads, so it has no CORS rules — but we still merge defensively.
-async function ensureCors(bucketName) {
-  let existing = [];
+async function bucketExists() {
   try {
-    const res = await client.send(new GetBucketCorsCommand({ Bucket: bucketName }));
-    existing = res.CORSRules ?? [];
-  } catch (e) {
-    if (e?.name !== "NoSuchCORSConfiguration") throw e;
+    await client.send(new HeadBucketCommand({ Bucket: bucketName }));
+    return true;
+  } catch {
+    return false;
   }
-  const hasPut = existing.some((r) => (r.AllowedMethods ?? []).includes("PUT"));
-  if (hasPut) {
-    console.log("[deploy-site] CORS already allows PUT — leaving as-is");
-    return;
+}
+
+// Create the bucket if missing, then make it public-read in the same way
+// Remotion expects. Idempotent: safe to run on an existing bucket too.
+async function ensureBucket() {
+  if (await bucketExists()) {
+    console.log("[deploy-site] bucket already exists — reconfiguring");
+  } else {
+    await client.send(
+      new CreateBucketCommand({
+        Bucket: bucketName,
+        CreateBucketConfiguration:
+          region === "us-east-1" ? undefined : { LocationConstraint: region },
+      }),
+    );
+    console.log(`[deploy-site] created bucket ${bucketName}`);
   }
-  const rules = [
-    ...existing,
-    {
-      AllowedMethods: ["PUT", "GET", "HEAD"],
-      AllowedOrigins: ["*"],
-      AllowedHeaders: ["*"],
-      ExposeHeaders: ["ETag"],
-      MaxAgeSeconds: 3000,
-    },
-  ];
+
+  // Re-enable ACLs (new buckets default to BucketOwnerEnforced = ACLs OFF, but
+  // Remotion's site upload sets a public-read ACL on objects).
+  await client.send(
+    new PutBucketOwnershipControlsCommand({
+      Bucket: bucketName,
+      OwnershipControls: { Rules: [{ ObjectOwnership: "BucketOwnerPreferred" }] },
+    }),
+  );
+  // Allow public policy/ACLs.
+  await client.send(new DeletePublicAccessBlockCommand({ Bucket: bucketName }));
+  // GetObject-only public policy so rendered MP4s are downloadable by URL.
+  await client.send(
+    new PutBucketPolicyCommand({
+      Bucket: bucketName,
+      Policy: JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Sid: "PublicReadGetObject",
+            Effect: "Allow",
+            Principal: "*",
+            Action: "s3:GetObject",
+            Resource: `arn:aws:s3:::${bucketName}/*`,
+          },
+        ],
+      }),
+    }),
+  );
+  console.log("[deploy-site] public-read posture configured (ACLs on + policy)");
+}
+
+// CORS so the browser can PUT narration audio straight to S3.
+async function configureCors() {
   await client.send(
     new PutBucketCorsCommand({
       Bucket: bucketName,
-      CORSConfiguration: { CORSRules: rules },
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedMethods: ["PUT", "GET", "HEAD"],
+            AllowedOrigins: ["*"],
+            AllowedHeaders: ["*"],
+            ExposeHeaders: ["ETag"],
+            MaxAgeSeconds: 3000,
+          },
+        ],
+      },
     }),
   );
-  console.log("[deploy-site] CORS rule for browser uploads added (merged)");
+  console.log("[deploy-site] CORS configured");
 }
 
-// Our renders live under renders/, which prod's bucket ALREADY expires after
-// 7 days. We only need to add an audio/ expiry rule — merged in alongside the
-// existing rules, never replacing them.
-async function ensureLifecycle(bucketName) {
-  let rules = [];
-  try {
-    const res = await client.send(
-      new GetBucketLifecycleConfigurationCommand({ Bucket: bucketName }),
-    );
-    rules = res.Rules ?? [];
-  } catch (e) {
-    if (e?.name !== "NoSuchLifecycleConfiguration") throw e;
-  }
-  if (rules.some((r) => r.ID === "expire-audio-7d")) {
-    console.log("[deploy-site] audio/ lifecycle rule already present");
-    return;
-  }
-  rules.push({
-    ID: "expire-audio-7d",
-    Filter: { Prefix: "audio/" },
-    Status: "Enabled",
-    Expiration: { Days: 7 },
-  });
+// 7-day expiry on uploads and renders. This is OUR bucket so we own the whole
+// lifecycle config — no merging required. (sites/ is intentionally excluded so
+// the deployed player bundle is never deleted.)
+async function configureLifecycle() {
   await client.send(
     new PutBucketLifecycleConfigurationCommand({
       Bucket: bucketName,
-      LifecycleConfiguration: { Rules: rules },
+      LifecycleConfiguration: {
+        Rules: [
+          {
+            ID: "expire-renders-7d",
+            Filter: { Prefix: "renders/" },
+            Status: "Enabled",
+            Expiration: { Days: 7 },
+            AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 },
+          },
+          {
+            ID: "expire-audio-7d",
+            Filter: { Prefix: "audio/" },
+            Status: "Enabled",
+            Expiration: { Days: 7 },
+            AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 },
+          },
+        ],
+      },
     }),
   );
-  console.log(
-    `[deploy-site] audio/ 7-day expiry added (merged with ${rules.length - 1} existing rule(s))`,
-  );
+  console.log("[deploy-site] 7-day lifecycle set on renders/ and audio/");
 }
 
 async function main() {
-  console.log(`[deploy-site] region=${region} siteName=${siteName}`);
-  const { bucketName } = await getOrCreateBucket({ region });
-  console.log(`[deploy-site] bucket (shared w/ prod): ${bucketName}`);
+  console.log(`[deploy-site] region=${region} bucket=${bucketName} site=${siteName}`);
 
-  await ensureCors(bucketName);
-  await ensureLifecycle(bucketName);
+  await ensureBucket();
+  await configureCors();
+  await configureLifecycle();
 
   const entryPoint = path.resolve(process.cwd(), "remotion/index.ts");
   const { serveUrl, siteName: deployedName } = await deploySite({
@@ -113,7 +153,7 @@ async function main() {
 
   console.log(`[deploy-site] deployed "${deployedName}"`);
   console.log("");
-  console.log("Add these to your .env.local:");
+  console.log("Confirm these in your .env.local:");
   console.log(`REMOTION_SERVE_URL=${serveUrl}`);
   console.log(`REMOTION_RENDER_BUCKET=${bucketName}`);
 }

@@ -25,6 +25,37 @@ export interface SleepRenderScene {
   caption?: string;
 }
 
+/**
+ * One scheduled *appearance* of an overlay clip on the timeline. Rather than a
+ * couple of clips running the whole video, all six clips take turns: each
+ * appearance plays for `durationInFrames` starting at `startFrame`, fading in
+ * and out, then the next one (a different clip) shows later. The clip itself is
+ * looped within its window if the window outlasts the (slowed) clip.
+ */
+export interface SleepOverlay {
+  /**
+   * Path under public/ for staticFile(), e.g. "overlays/blue_smoke.mp4".
+   * These are dark "additive" clips (smoke/fire/light on black) composited
+   * with mixBlendMode:"screen", so the black contributes nothing — no alpha
+   * keying needed.
+   */
+  src: string;
+  /** Native clip length in seconds — used to size the loop window. */
+  durationInSeconds: number;
+  /** When this appearance starts on the timeline, in frames. */
+  startFrame: number;
+  /** How long this appearance stays on screen, in frames. */
+  durationInFrames: number;
+  /** Fade in/out length, in frames, so appearances never pop on/off. */
+  fadeFrames: number;
+  /** Playback speed; <1 slows the motion (these clips run too fast at 1x). */
+  playbackRate: number;
+  /** Screen-blend opacity — kept low so it reads as atmosphere, not subject. */
+  opacity: number;
+  /** Mirror horizontally, for extra per-video variety. */
+  flip?: boolean;
+}
+
 export interface SleepVideoInputProps {
   // Remotion's <Composition> constrains input props to Record<string, unknown>.
   // The declared members below keep their precise types; this just satisfies
@@ -42,4 +73,10 @@ export interface SleepVideoInputProps {
   scenes: SleepRenderScene[];
   /** Crossfade overlap between consecutive scenes, in frames. */
   crossfadeFrames: number;
+  /**
+   * Screen-blended ambient video overlays, chosen randomly per render so no two
+   * videos carry the same moving texture (variety to avoid duplicate-detection
+   * pattern-matching). Looped to fill the whole timeline.
+   */
+  overlays?: SleepOverlay[];
 }

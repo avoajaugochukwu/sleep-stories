@@ -174,7 +174,7 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
                 className="w-full h-full object-contain"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <ImageIcon className="h-16 w-16 mb-2" />
                 <span>No image generated</span>
               </div>

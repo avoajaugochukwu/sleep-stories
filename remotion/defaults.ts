@@ -36,4 +36,27 @@ export const sleepStoryDefaults: SleepVideoInputProps = {
   title: "A Quiet Night",
   scenes,
   crossfadeFrames: Math.round(1.2 * fps),
+  // Preview-only sample schedule; real renders randomise this (all six clips,
+  // random timing/length/speed) in build-input.ts → scheduleOverlays().
+  overlays: [
+    {
+      src: "overlays/light_white_smoke_rising_from_bottom.mp4",
+      durationInSeconds: 40.95,
+      startFrame: 0,
+      durationInFrames: 30 * fps,
+      fadeFrames: Math.round(2.5 * fps),
+      playbackRate: 0.35,
+      opacity: 0.22,
+    },
+    {
+      src: "overlays/blue_smoke_later_in_video.mp4",
+      durationInSeconds: 20,
+      startFrame: 33 * fps,
+      durationInFrames: 20 * fps,
+      fadeFrames: Math.round(2.5 * fps),
+      playbackRate: 0.3,
+      opacity: 0.24,
+      flip: true,
+    },
+  ],
 };
