@@ -119,6 +119,9 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span>Scene {scene.scene_number}</span>
+              <Badge variant="outline" className="text-xs">
+                Grok Imagine
+              </Badge>
               {scene.image_pool_index !== undefined && (
                 <Badge variant="secondary" className="text-xs">
                   Image #{scene.image_pool_index + 1}/{MAX_GENERATED_IMAGES}
@@ -126,6 +129,14 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
               )}
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={handleRegenerate}
+                disabled={isRegenerating || isEditing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${isRegenerating ? 'animate-spin' : ''}`} />
+                Regenerate
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
