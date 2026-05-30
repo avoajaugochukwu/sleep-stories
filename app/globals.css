@@ -207,7 +207,8 @@
   background-repeat: repeat;
   background-size: 480px 480px;
   opacity: 0.5;
-  animation: twinkle 7s ease-in-out infinite;
+  /* Twinkle in place, and drift one full tile diagonally on a seamless loop */
+  animation: twinkle 7s ease-in-out infinite, star-drift 160s linear infinite;
 }
 
 /* Fine film grain to kill banding and add cinematic texture */
@@ -251,6 +252,23 @@
   pointer-events: none;
 }
 
+/* A bright glow dot that orbits continuously around a round element */
+.orbit-glow {
+  position: relative;
+  isolation: isolate;
+}
+.orbit-glow::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--primary) 85%, #fff) 0%, transparent 22%);
+  filter: drop-shadow(0 0 7px var(--primary)) drop-shadow(0 0 13px var(--glow-violet));
+  animation: orbit 3.6s linear infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
 /* Soft moon-glow halo for focal elements */
 .moon-glow {
   box-shadow:
@@ -280,6 +298,16 @@
 @keyframes twinkle {
   0%, 100% { opacity: 0.32; }
   50% { opacity: 0.6; }
+}
+
+/* Continuous slow pan — moves exactly one tile so the loop is seamless */
+@keyframes star-drift {
+  from { background-position: 0 0; }
+  to { background-position: 480px 480px; }
+}
+
+@keyframes orbit {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes breathe {
@@ -330,7 +358,8 @@
   .animate-breathe,
   .animate-rise,
   .stagger > *,
-  .shimmer {
+  .shimmer,
+  .orbit-glow::after {
     animation: none !important;
     opacity: 1;
   }

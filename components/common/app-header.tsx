@@ -26,7 +26,7 @@ export function AppHeader() {
             onClick={() => router.push('/scenes')}
             className="group flex items-center gap-3"
           >
-            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-secondary/70 moon-glow">
+            <span className="orbit-glow relative grid h-10 w-10 place-items-center rounded-full bg-secondary/70 moon-glow">
               <Moon className="h-5 w-5 text-primary animate-breathe" strokeWidth={1.75} />
             </span>
             <span className="flex flex-col items-start leading-none">
