@@ -34,6 +34,20 @@ export interface AudioAsset {
   sizeBytes: number;
 }
 
+// A single Lambda render attempt. We keep many so you can fire off multiple
+// renders, compare outputs, and not lose track on refresh (persisted to IDB).
+export interface RenderJob {
+  renderId: string;
+  bucketName: string;
+  title: string;
+  createdAt: number; // epoch ms
+  status: 'rendering' | 'done' | 'error';
+  progress: number; // 0..1
+  outputFile?: string;
+  cost?: number;
+  error?: string;
+}
+
 // Workflow Management
 export type WorkflowStep = 1 | 2 | 3; // Scenes → Render → Export
 
@@ -49,10 +63,16 @@ export interface SessionStore {
   // Narration audio (collected with the script)
   audio: AudioAsset | null;
 
+  // Render jobs fired off this session (persisted so refresh/failure is safe)
+  renders: RenderJob[];
+
   // Workflow state
   isGenerating: boolean;
   errors: string[];
   sceneGenerationProgress: number;
+
+  // Hydration flag — true once IndexedDB state has loaded on the client.
+  _hydrated: boolean;
 
   // Actions
   setScript: (script: Script) => void;
@@ -60,6 +80,9 @@ export interface SessionStore {
   setStoryboardScenes: (scenes: StoryboardScene[]) => void;
   updateStoryboardScene: (sceneNumber: number, updates: Partial<StoryboardScene>) => void;
   setAudio: (audio: AudioAsset | null) => void;
+  addRender: (job: RenderJob) => void;
+  updateRender: (renderId: string, updates: Partial<RenderJob>) => void;
+  removeRender: (renderId: string) => void;
   setStep: (step: WorkflowStep) => void;
   setGenerating: (isGenerating: boolean) => void;
   setSceneGenerationProgress: (progress: number) => void;

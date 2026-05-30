@@ -1,11 +1,13 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export const awsRegion = process.env.AWS_REGION ?? "us-east-1";
+export const awsRegion = process.env.AWS_REGION ?? "us-west-2";
 
 /**
  * Bucket used for both audio uploads (under audio/) and the rendered videos.
@@ -65,4 +67,71 @@ export async function presignAudioDownload(
 ): Promise<string> {
   const cmd = new GetObjectCommand({ Bucket: renderBucket(), Key: key });
   return getSignedUrl(s3(), cmd, { expiresIn });
+}
+
+export interface RenderListing {
+  renderId: string;
+  name: string;
+  url: string;
+  key: string;
+  sizeMB: number;
+  createdAt: string; // ISO
+}
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function friendlyName(filename: string, fallback: string): string {
+  const base = filename.replace(/\.mp4$/i, "");
+  if (!base || base === "out") return fallback;
+  return base.replace(/[-_]+/g, " ").trim();
+}
+
+/**
+ * List finished renders from the last 7 days (the bucket's lifecycle deletes
+ * them after that anyway). Authoritative across sessions/machines.
+ */
+export async function listRecentRenders(): Promise<RenderListing[]> {
+  const bucket = renderBucket();
+  const cutoff = Date.now() - SEVEN_DAYS_MS;
+  const out: RenderListing[] = [];
+  let token: string | undefined;
+
+  do {
+    const res = await s3().send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: "renders/",
+        ContinuationToken: token,
+      }),
+    );
+    for (const obj of res.Contents ?? []) {
+      if (!obj.Key || !obj.LastModified) continue;
+      // renders/<renderId>/<file>.mp4
+      const m = obj.Key.match(/^renders\/([^/]+)\/([^/]+\.mp4)$/);
+      if (!m) continue;
+      if (obj.LastModified.getTime() < cutoff) continue;
+      out.push({
+        renderId: m[1]!,
+        name: friendlyName(m[2]!, m[1]!),
+        key: obj.Key,
+        url: `https://${bucket}.s3.${awsRegion}.amazonaws.com/${obj.Key}`,
+        sizeMB: Math.round(((obj.Size ?? 0) / 1024 / 1024) * 100) / 100,
+        createdAt: obj.LastModified.toISOString(),
+      });
+    }
+    token = res.NextContinuationToken;
+  } while (token);
+
+  out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return out;
+}
+
+/** Delete a finished render's mp4 (used by the "discard this take" button). */
+export async function deleteRenderObject(key: string): Promise<void> {
+  if (!/^renders\/[^/]+\/[^/]+\.mp4$/.test(key)) {
+    throw new Error("Refusing to delete unexpected key");
+  }
+  await s3().send(
+    new DeleteObjectCommand({ Bucket: renderBucket(), Key: key }),
+  );
 }

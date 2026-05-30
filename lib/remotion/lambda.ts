@@ -4,12 +4,16 @@ import {
 } from "@remotion/lambda/client";
 import type { SleepVideoInputProps } from "./types";
 
-const region = process.env.AWS_REGION ?? "us-east-1";
+const region = process.env.AWS_REGION ?? "us-west-2";
 
-// Remotion caps a render at 200 Lambda chunks. Keep chunks reasonably sized so
-// long sleep narrations (which can be hours) still fit under the cap.
-const MAX_CHUNKS = 190;
-const MIN_FRAMES_PER_LAMBDA = 100;
+// Speed strategy: fan out into as many chunks as Remotion allows (hard cap
+// 200) so that, once the account concurrency increase lands (10 -> 5000),
+// nearly the whole video renders in parallel. Until then chunks simply queue
+// 10-at-a-time, so there's no downside to maximising the fan-out now.
+const MAX_CHUNKS = 200;
+// Small floor so short test clips still split into a few parallel chunks
+// instead of one slow Lambda.
+const MIN_FRAMES_PER_LAMBDA = 60;
 
 function computeFramesPerLambda(totalFrames: number): number {
   if (totalFrames <= 0) return MIN_FRAMES_PER_LAMBDA;
@@ -51,7 +55,10 @@ export async function startSleepRender(
     privacy: "public",
     jpegQuality: 80,
     framesPerLambda: computeFramesPerLambda(input.durationInFrames),
-    concurrencyPerLambda: 1,
+    // 10240 MB ≈ 6 vCPUs, so render 4 frames in parallel inside each Lambda.
+    // Combined with the fan-out and us-west-2's 1500 concurrency limit, even
+    // long narrations render fast.
+    concurrencyPerLambda: 4,
     maxRetries: 2,
     outName: `${slug(input.title)}.mp4`,
   });

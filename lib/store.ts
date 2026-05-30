@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware';
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { SessionStore, WorkflowStep } from './types';
 
 const initialState = {
@@ -7,41 +9,104 @@ const initialState = {
   scenes: [],
   storyboardScenes: [],
   audio: null,
+  renders: [],
   isGenerating: false,
   errors: [],
   sceneGenerationProgress: 0,
 };
 
-export const useSessionStore = create<SessionStore>((set) => ({
-  ...initialState,
+// Only the durable parts of the session are persisted — never transient flags
+// like isGenerating/errors/progress. This is what survives a refresh or a
+// failed step (notably the expensive generated images and the render list).
+type PersistedState = Pick<
+  SessionStore,
+  'currentStep' | 'script' | 'scenes' | 'storyboardScenes' | 'audio' | 'renders'
+>;
 
-  setScript: (script) => set({ script }),
+// IndexedDB-backed storage. We store the StorageValue object directly (not a
+// JSON string) so structured clone preserves types like Date on
+// script.generated_at. Falls back gracefully on the server (no window).
+const idbStorage: PersistStorage<PersistedState> = {
+  getItem: async (name) => {
+    if (typeof window === 'undefined') return null;
+    return ((await idbGet(name)) as StorageValue<PersistedState> | undefined) ?? null;
+  },
+  setItem: async (name, value) => {
+    if (typeof window === 'undefined') return;
+    await idbSet(name, value);
+  },
+  removeItem: async (name) => {
+    if (typeof window === 'undefined') return;
+    await idbDel(name);
+  },
+};
 
-  setScenes: (scenes) => set({ scenes }),
+export const useSessionStore = create<SessionStore>()(
+  persist(
+    (set) => ({
+      ...initialState,
+      _hydrated: false,
 
-  setStoryboardScenes: (scenes) => set({ storyboardScenes: scenes }),
+      setScript: (script) => set({ script }),
 
-  updateStoryboardScene: (sceneNumber, updates) =>
-    set((state) => ({
-      storyboardScenes: state.storyboardScenes.map((scene) =>
-        scene.scene_number === sceneNumber ? { ...scene, ...updates } : scene
-      ),
-    })),
+      setScenes: (scenes) => set({ scenes }),
 
-  setAudio: (audio) => set({ audio }),
+      setStoryboardScenes: (scenes) => set({ storyboardScenes: scenes }),
 
-  setStep: (step) => set({ currentStep: step }),
+      updateStoryboardScene: (sceneNumber, updates) =>
+        set((state) => ({
+          storyboardScenes: state.storyboardScenes.map((scene) =>
+            scene.scene_number === sceneNumber ? { ...scene, ...updates } : scene
+          ),
+        })),
 
-  setGenerating: (isGenerating) => set({ isGenerating }),
+      setAudio: (audio) => set({ audio }),
 
-  setSceneGenerationProgress: (progress) => set({ sceneGenerationProgress: progress }),
+      addRender: (job) =>
+        set((state) => ({ renders: [job, ...state.renders] })),
 
-  addError: (error) =>
-    set((state) => ({
-      errors: [...state.errors, error],
-    })),
+      updateRender: (renderId, updates) =>
+        set((state) => ({
+          renders: state.renders.map((r) =>
+            r.renderId === renderId ? { ...r, ...updates } : r
+          ),
+        })),
 
-  clearErrors: () => set({ errors: [] }),
+      removeRender: (renderId) =>
+        set((state) => ({
+          renders: state.renders.filter((r) => r.renderId !== renderId),
+        })),
 
-  reset: () => set(initialState),
-}));
+      setStep: (step) => set({ currentStep: step }),
+
+      setGenerating: (isGenerating) => set({ isGenerating }),
+
+      setSceneGenerationProgress: (progress) => set({ sceneGenerationProgress: progress }),
+
+      addError: (error) =>
+        set((state) => ({
+          errors: [...state.errors, error],
+        })),
+
+      clearErrors: () => set({ errors: [] }),
+
+      reset: () => set({ ...initialState }),
+    }),
+    {
+      name: 'sleep-stories-session',
+      version: 1,
+      storage: idbStorage,
+      partialize: (state): PersistedState => ({
+        currentStep: state.currentStep,
+        script: state.script,
+        scenes: state.scenes,
+        storyboardScenes: state.storyboardScenes,
+        audio: state.audio,
+        renders: state.renders,
+      }),
+      onRehydrateStorage: () => () => {
+        useSessionStore.setState({ _hydrated: true });
+      },
+    }
+  )
+);

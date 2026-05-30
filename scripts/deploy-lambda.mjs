@@ -1,8 +1,11 @@
 import { deployFunction, getFunctions } from "@remotion/lambda";
 
-// Deploy the Remotion render Lambda into OUR region (us-east-1 by default).
-// Production (remotion-test-2) lives in us-west-2, so this never touches it.
-const region = process.env.AWS_REGION ?? "us-east-1";
+// Deploy OUR OWN Remotion render Lambda in the same region as production
+// (us-west-2). We never touch the production functions because ours has a
+// DISTINCT config (disk 2048 MB) and therefore a distinct name:
+//   ours: remotion-render-4-0-451-mem10240mb-disk2048mb-900sec
+//   prod: remotion-render-4-0-451-mem10240mb-disk10240mb-900sec (+ 4-0-462)
+const region = process.env.AWS_REGION ?? "us-west-2";
 
 async function main() {
   console.log(`[deploy-lambda] region=${region}`);
@@ -15,12 +18,13 @@ async function main() {
   const { functionName, alreadyExisted } = await deployFunction({
     region,
     timeoutInSeconds: 900,
-    // This AWS account is capped at 3008 MB in us-east-1 (unverified-tier
-    // limit). That's ~2 vCPUs — plenty for slow sleep renders. Production's
-    // us-west-2 region allows more, but we stay here for isolation.
-    memorySizeInMb: 3008,
+    // Full power: 10240 MB ≈ 6 vCPUs (us-west-2 allows it; us-east-1 didn't).
+    memorySizeInMb: 10240,
     createCloudWatchLogGroup: true,
-    diskSizeInMb: 10240,
+    // 2048 MB disk is plenty for 1080p sleep renders, and — importantly — it
+    // makes our function name differ from prod's (which uses disk 10240) so we
+    // can never overwrite their Lambda.
+    diskSizeInMb: 2048,
   });
 
   console.log(
