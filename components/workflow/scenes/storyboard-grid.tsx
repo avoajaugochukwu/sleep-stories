@@ -91,8 +91,8 @@ export function StoryboardGrid() {
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <h3 className="text-2xl font-bold">Review Your Storyboard</h3>
-        <p className="text-gray-600">
+        <h3 className="font-display text-2xl">Review your storyboard</h3>
+        <p className="text-muted-foreground">
           Click on any scene to view details or regenerate the image
         </p>
         
@@ -121,7 +121,7 @@ export function StoryboardGrid() {
             key={scene.scene_number}
             className={`
               cursor-pointer transition-all hover:shadow-lg
-              ${scene.generation_status === 'error' ? 'ring-2 ring-red-500' : ''}
+              ${scene.generation_status === 'error' ? 'ring-2 ring-destructive' : ''}
               ${scene.is_regenerating ? 'opacity-75' : ''}
             `}
             onClick={() => openSceneEditor(scene)}
@@ -138,18 +138,18 @@ export function StoryboardGrid() {
                   )}
                 </div>
                 {scene.generation_status === 'completed' && (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CheckCircle className="h-4 w-4 text-success" />
                 )}
                 {scene.generation_status === 'error' && (
-                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <AlertCircle className="h-4 w-4 text-destructive" />
                 )}
                 {scene.generation_status === 'generating' && (
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
                 )}
               </div>
 
               {/* Scene Image */}
-              <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden group">
+              <div className="relative aspect-video bg-secondary/50 rounded-lg overflow-hidden group">
                 {scene.image_url ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -164,7 +164,7 @@ export function StoryboardGrid() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60">
                     <ImageIcon className="h-8 w-8 mb-1" />
                     <span className="text-xs">No image</span>
                   </div>
@@ -172,7 +172,7 @@ export function StoryboardGrid() {
               </div>
 
               {/* Scene Description */}
-              <p className="text-sm text-gray-600 line-clamp-2">
+              <p className="text-sm text-muted-foreground line-clamp-2">
                 {scene.script_snippet}
               </p>
 

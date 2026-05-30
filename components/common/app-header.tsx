@@ -2,68 +2,81 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
+import { Moon } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+
+const navItems = [
+  { path: '/scenes', label: 'Scenes', step: '01' },
+  { path: '/export', label: 'Export', step: '02' },
+];
 
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const navItems = [
-    { path: '/scripting', label: 'Scripting' },
-    { path: '/scenes', label: 'Scenes' },
-    { path: '/export', label: 'Export' },
-  ];
+  const activeIndex = navItems.findIndex((i) => pathname?.startsWith(i.path));
 
   return (
-    <>
-      <Toaster position="top-right" />
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div
-                className="flex items-center gap-2 cursor-pointer"
-                onClick={() => router.push('/scripting')}
-              >
-                <Sparkles className="h-6 w-6 text-red-800" />
-                <h1 className="text-xl font-bold text-gray-900">
-                  Psychoterra
-                </h1>
-                <span className="text-sm text-gray-500">v2.0</span>
-              </div>
+    <header className="sticky top-0 z-40">
+      <div className="absolute inset-0 -z-10 bg-background/55 backdrop-blur-xl border-b border-border/60" />
+      <div className="mx-auto max-w-6xl px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Brand */}
+          <button
+            onClick={() => router.push('/scenes')}
+            className="group flex items-center gap-3"
+          >
+            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-secondary/70 moon-glow">
+              <Moon className="h-5 w-5 text-primary animate-breathe" strokeWidth={1.75} />
+            </span>
+            <span className="flex flex-col items-start leading-none">
+              <span className="font-display text-lg font-medium tracking-tight text-aurora">
+                Sleep Stories
+              </span>
+              <span className="mt-1 text-[11px] uppercase tracking-[0.28em] text-muted-foreground/80">
+                Nocturne Studio
+              </span>
+            </span>
+          </button>
 
-              {/* Navigation Links */}
-              <nav className="hidden md:flex items-center gap-1">
-                {navItems.map((item) => (
-                  <Button
-                    key={item.path}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push(item.path)}
+          {/* Step navigation */}
+          <nav className="flex items-center gap-1 rounded-full border border-border/70 bg-secondary/40 p-1 backdrop-blur-sm">
+            {navItems.map((item, i) => {
+              const active = pathname?.startsWith(item.path);
+              const done = activeIndex > i;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => router.push(item.path)}
+                  className={cn(
+                    'group relative flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm transition-all duration-300 sm:px-4',
+                    active
+                      ? 'bg-primary/15 text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span
                     className={cn(
-                      "text-sm",
-                      pathname === item.path
-                        ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                        : "text-gray-600 hover:text-gray-900"
+                      'font-mono text-[10px] tabular-nums transition-colors',
+                      active
+                        ? 'text-primary'
+                        : done
+                        ? 'text-accent'
+                        : 'text-muted-foreground/60'
                     )}
                   >
-                    {item.label}
-                  </Button>
-                ))}
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-gray-600 hidden lg:block">
-                AI-Powered Stoic Content Creation
-              </p>
-            </div>
-          </div>
+                    {item.step}
+                  </span>
+                  <span className="font-medium tracking-tight">{item.label}</span>
+                  {active && (
+                    <span className="absolute inset-x-3 -bottom-px h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   );
 }

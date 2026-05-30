@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/common/loading-spinner';
+import { MAX_GENERATED_IMAGES } from '@/lib/constants';
 import { 
   RefreshCw, 
   ChevronLeft, 
@@ -120,7 +121,7 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
               <span>Scene {scene.scene_number}</span>
               {scene.image_pool_index !== undefined && (
                 <Badge variant="secondary" className="text-xs">
-                  Image #{scene.image_pool_index + 1}/60
+                  Image #{scene.image_pool_index + 1}/{MAX_GENERATED_IMAGES}
                 </Badge>
               )}
             </div>
@@ -149,7 +150,7 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
 
         <div className="space-y-4">
           {/* Scene Image */}
-          <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-secondary/50 rounded-lg overflow-hidden">
             {isRegenerating ? (
               <div className="flex items-center justify-center h-full">
                 <LoadingSpinner size="lg" text="Regenerating scene..." />
@@ -162,14 +163,14 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
                 className="w-full h-full object-contain"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60">
                 <ImageIcon className="h-16 w-16 mb-2" />
                 <span>No image generated</span>
               </div>
             )}
-            
+
             {scene.generation_status === 'error' && (
-              <div className="absolute inset-x-0 bottom-0 bg-red-500 text-white p-2 text-sm">
+              <div className="absolute inset-x-0 bottom-0 bg-destructive text-destructive-foreground p-2 text-sm">
                 {scene.error_message || 'Generation failed'}
               </div>
             )}
@@ -178,7 +179,7 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
           {/* Script Snippet */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Scene Script:</label>
-            <div className="p-3 bg-gray-50 rounded-md">
+            <div className="p-3 bg-secondary/40 rounded-md">
               <p className="text-sm">{scene.script_snippet}</p>
             </div>
           </div>
@@ -229,7 +230,7 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
                 </div>
               </div>
             ) : (
-              <div className="p-3 bg-gray-50 rounded-md">
+              <div className="p-3 bg-secondary/40 rounded-md">
                 <p className="text-sm">{scene.visual_prompt}</p>
               </div>
             )}

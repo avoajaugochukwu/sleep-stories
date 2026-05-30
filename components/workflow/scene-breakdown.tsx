@@ -65,7 +65,7 @@ export function SceneBreakdown() {
       <div className="text-center">
         <h2 className="text-2xl font-bold font-serif mb-2">Scene Generation</h2>
         <p className="text-muted-foreground">
-          Creating cinematic historical storyboard with oil painting style
+          Breaking your script into long, calming scenes with dark cinematic imagery
         </p>
       </div>
 

@@ -76,7 +76,7 @@ function createFFmpegManifest(data: ExportData): string {
 // Create assembly guide markdown
 function createAssemblyGuide(data: ExportData): string {
   let guide = '# Video Assembly Guide\n\n';
-  guide += `## Project: Psychoterra Export\n`;
+  guide += `## Project: Sleep Stories Export\n`;
   guide += `Generated on: ${new Date().toLocaleString()}\n\n`;
 
   guide += '## File Structure\n\n';
@@ -109,13 +109,13 @@ function createAssemblyGuide(data: ExportData): string {
 // Create scene timeline JSON for advanced editing
 function createSceneTimeline(data: ExportData): object {
   const timeline = {
-    project: 'Psychoterra',
+    project: 'Sleep Stories',
     total_scenes: data.storyboardScenes.length,
     scenes: data.storyboardScenes.map((scene, index) => ({
       scene_number: index + 1,
       filename: `scene_${padNumber(index + 1)}.jpg`,
       script_excerpt: scene.script_snippet?.substring(0, 100),
-      suggested_duration_seconds: SCENE_DURATION_SECONDS,
+      suggested_duration_seconds: scene.duration ?? SCENE_DURATION_SECONDS,
     }))
   };
 
@@ -125,7 +125,7 @@ function createSceneTimeline(data: ExportData): object {
 export async function createExportZip(data: ExportData): Promise<void> {
   const zip = new JSZip();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const projectName = 'psychoterra';
+  const projectName = 'sleep-stories';
   
   // Create media folders
   const mediaFolder = zip.folder('media');
@@ -180,7 +180,7 @@ export async function createExportZip(data: ExportData): Promise<void> {
   // Add script
   if (data.script) {
     zip.file('script.txt', data.script.content);
-    zip.file('script.md', `# Psychoterra Script\n\n${data.script.content}`);
+    zip.file('script.md', `# Sleep Stories Script\n\n${data.script.content}`);
   }
   
   // Generate and download the zip file

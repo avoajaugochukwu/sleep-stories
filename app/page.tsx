@@ -7,7 +7,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push('/scripting');
+    router.push('/scenes');
   }, [router]);
 
   return null;

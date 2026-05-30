@@ -27,7 +27,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
   const [currentGeneratingScene, setCurrentGeneratingScene] = useState(0);
   const [imagePoolGenerated, setImagePoolGenerated] = useState(0);
   const hasGeneratedScenesRef = useRef(false);
-  const imagePoolRef = useRef<string[]>([]); // Store the 60 generated image URLs
+  const imagePoolRef = useRef<string[]>([]); // Store the pool of generated image URLs
 
   const generateSceneImage = async (scene: StoryboardScene) => {
     try {
@@ -73,7 +73,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
     hasGeneratedScenesRef.current = true;
     setGeneratingScenes(true);
 
-    // Determine how many unique images to generate (max 60)
+    // Determine how many unique images to generate (capped by MAX_GENERATED_IMAGES)
     const totalScenes = scenes.length;
     const imagesToGenerate = Math.min(totalScenes, MAX_GENERATED_IMAGES);
 
@@ -91,7 +91,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
       onComplete();
     }
 
-    // PHASE 1: Generate only the first N images (up to 60)
+    // PHASE 1: Generate one unique image per scene, up to the pool cap
     console.log(`Generating image pool: ${imagesToGenerate} unique images for ${totalScenes} scenes`);
 
     const imageGenerationPromises = scenes.slice(0, imagesToGenerate).map(async (scene, index) => {
@@ -141,29 +141,32 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
     // Wait for all unique images to be generated
     await Promise.all(imageGenerationPromises);
 
-    // PHASE 2: Distribute images randomly across ALL scenes
-    console.log('Distributing images across all scenes...');
+    // PHASE 2: Cover any overflow scenes.
+    // When totalScenes <= the image pool, every scene already has its OWN
+    // topic-matched image from phase 1 — leave that 1:1 mapping intact.
+    // Only longer videos (more scenes than the pool) reuse images, and only for
+    // the extra scenes beyond the pool, distributed from a shuffled pool.
+    if (totalScenes > imagesToGenerate) {
+      console.log('Distributing pooled images across overflow scenes...');
+      const shuffledIndices = Array.from({ length: imagesToGenerate }, (_, i) => i)
+        .sort(() => Math.random() - 0.5);
 
-    // Create shuffled pool of image indices
-    const shuffledIndices = Array.from({ length: imagesToGenerate }, (_, i) => i)
-      .sort(() => Math.random() - 0.5);
+      for (let i = imagesToGenerate; i < totalScenes; i++) {
+        const poolIndex = shuffledIndices[i % imagesToGenerate];
+        const imageUrl = imagePoolRef.current[poolIndex];
 
-    // Assign images to all scenes using the shuffled pool (cycling through if needed)
-    for (let i = 0; i < totalScenes; i++) {
-      const poolIndex = shuffledIndices[i % imagesToGenerate];
-      const imageUrl = imagePoolRef.current[poolIndex];
-
-      if (imageUrl) {
-        updateStoryboardScene(scenes[i].scene_number, {
-          image_url: imageUrl,
-          generation_status: 'completed',
-          image_pool_index: poolIndex,
-        });
+        if (imageUrl) {
+          updateStoryboardScene(scenes[i].scene_number, {
+            image_url: imageUrl,
+            generation_status: 'completed',
+            image_pool_index: poolIndex,
+          });
+        }
       }
     }
 
     setGeneratingScenes(false);
-    console.log(`✓ Complete: ${imagesToGenerate} images distributed across ${totalScenes} scenes`);
+    console.log(`✓ Complete: ${imagesToGenerate} unique images across ${totalScenes} scenes`);
   };
 
   useEffect(() => {
@@ -287,7 +290,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
         </div>
 
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>Images generated with cinematic oil painting style.</p>
+          <p>Images generated with a dark, calming, cinematic style.</p>
           {totalScenes > MAX_GENERATED_IMAGES ? (
             <p className="text-xs">
               Generating {imagesToGenerate} unique images, randomly distributed across {totalScenes} scenes
@@ -297,7 +300,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
               Generating {imagesToGenerate} unique images for {totalScenes} scenes
             </p>
           )}
-          <p className="text-xs">Using nano-banana model (~7-10 seconds per image)</p>
+          <p className="text-xs">Using Grok Imagine (xAI) at 2k, 16:9</p>
         </div>
       </div>
     </Card>

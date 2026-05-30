@@ -27,7 +27,7 @@ export function LoadingSpinner({
         sizeClasses[size]
       )} />
       {text && (
-        <p className="mt-4 text-sm text-gray-600 animate-pulse">{text}</p>
+        <p className="mt-4 text-sm text-muted-foreground animate-pulse">{text}</p>
       )}
     </div>
   );

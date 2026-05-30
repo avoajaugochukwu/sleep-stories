@@ -1,18 +1,22 @@
 import Link from 'next/link';
+import { MoonStar } from 'lucide-react';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold mb-4">Page Not Found</h2>
-        <p className="text-gray-600 mb-6">
-          The page you&apos;re looking for doesn&apos;t exist.
+    <div className="flex min-h-[80vh] items-center justify-center px-5">
+      <div className="glass-card max-w-md p-10 text-center">
+        <span className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full bg-secondary/60 moon-glow">
+          <MoonStar className="h-7 w-7 text-primary animate-breathe" strokeWidth={1.5} />
+        </span>
+        <h2 className="font-display text-3xl font-light tracking-tight">Lost in the dark</h2>
+        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
+          This page drifted off somewhere. Let&apos;s get you back to the studio.
         </p>
         <Link
           href="/"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="mt-7 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 moon-glow"
         >
-          Go back home
+          Back to the studio
         </Link>
       </div>
     </div>

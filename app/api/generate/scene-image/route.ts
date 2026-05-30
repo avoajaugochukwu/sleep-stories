@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
-import { IMAGE_GENERATION_SUFFIX, NEGATIVE_PROMPT_PSYCHOTERRA } from '@/lib/prompts/all-prompts';
+import { IMAGE_GENERATION_SUFFIX } from '@/lib/prompts/all-prompts';
+
+// Grok Imagine has no negative_prompt param, so the key avoidances are folded
+// into the prompt text instead.
+const AVOID_CLAUSE =
+  'Avoid: bright daylight, harsh or high-key lighting, text, captions, watermarks, logos, busy or cluttered compositions, and anything scary, jarring, or violent.';
 
 interface FalImageResult {
   data?: {
@@ -28,24 +33,25 @@ export async function POST(request: NextRequest) {
       credentials: apiKey,
     });
 
-    // Build enhanced prompt with Psychoterra marble statue aesthetic
-    const basePrompt = scene.visual_prompt || 'Marble statue in dramatic lighting';
+    // Build enhanced prompt with the Sleep Stories dark cinematic aesthetic
+    const basePrompt =
+      scene.visual_prompt || 'A calm, dark, dreamlike scene in deep shadow with soft muted light';
 
-    // Inject Psychoterra style suffix to ensure marble statue, cinematic visuals
-    const styledPrompt = `${basePrompt}, ${IMAGE_GENERATION_SUFFIX}`;
+    // Inject the sleep style suffix + avoidances to enforce dark, calming visuals
+    const styledPrompt = `${basePrompt}, ${IMAGE_GENERATION_SUFFIX}. ${AVOID_CLAUSE}`;
 
     console.log(`[Scene Image] Generating image for scene ${scene.scene_number}`);
     console.log(`[Scene Image] Prompt length: ${styledPrompt.length} characters`);
 
-    // Use nano-banana for fast generation (7-10 seconds) with enhanced prompting
-    const apiEndpoint = 'fal-ai/nano-banana';
+    // Grok Imagine Image (xAI) via fal, 16:9 at 2k for full-screen video backgrounds
+    const apiEndpoint = 'xai/grok-imagine-image';
     const apiRequest = {
       input: {
         prompt: styledPrompt,
-        negative_prompt: NEGATIVE_PROMPT_PSYCHOTERRA,
         num_images: 1,
         aspect_ratio: '16:9',
-        seed: Math.floor(Math.random() * 1000000), // Random seed for variety
+        resolution: '2k',
+        output_format: 'jpeg',
       },
       logs: false,
     };
@@ -65,8 +71,8 @@ export async function POST(request: NextRequest) {
       image_url: imageUrl,
       prompt_used: styledPrompt,
       aspect_ratio: '16:9',
-      model: 'fal-ai/nano-banana',
-      style: 'psychoterra-marble-statue',
+      model: 'xai/grok-imagine-image',
+      style: 'sleep-dark-cinematic',
     });
   } catch (error) {
     console.error('[Scene Image] Generation error:', error);

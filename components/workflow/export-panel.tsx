@@ -89,8 +89,8 @@ export function ExportPanel() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold mb-2">Export Your Story</h2>
-        <p className="text-gray-600">
+        <h2 className="font-display text-2xl mb-2">Export your story</h2>
+        <p className="text-muted-foreground">
           Download all generated content as a ZIP file
         </p>
       </div>
@@ -109,19 +109,19 @@ export function ExportPanel() {
             <div key={index} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
                 <item.icon className={`h-5 w-5 ${
-                  item.available ? 'text-green-600' : 'text-gray-400'
+                  item.available ? 'text-success' : 'text-muted-foreground/50'
                 }`} />
                 <div>
                   <p className={`text-sm font-medium ${
-                    !item.available && 'text-gray-500'
+                    !item.available && 'text-muted-foreground'
                   }`}>
                     {item.name}
                   </p>
-                  <p className="text-xs text-gray-500">{item.description}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
               </div>
               {item.available ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <CheckCircle className="h-5 w-5 text-success" />
               ) : (
                 <Badge variant="outline" className="text-xs">
                   Not Available
@@ -140,17 +140,17 @@ export function ExportPanel() {
           {script && (
             <>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Word Count:</span>
+                <span className="text-sm text-muted-foreground">Word Count:</span>
                 <span className="text-sm font-medium">{script.word_count} words</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Estimated Duration:</span>
+                <span className="text-sm text-muted-foreground">Estimated Duration:</span>
                 <span className="text-sm font-medium">{Math.round((script.word_count / 150) * 10) / 10} minutes</span>
               </div>
             </>
           )}
           <div className="flex justify-between pt-2 border-t">
-            <span className="text-sm text-gray-600">Estimated Size:</span>
+            <span className="text-sm text-muted-foreground">Estimated Size:</span>
             <span className="text-sm font-medium">{getEstimatedSize()}</span>
           </div>
         </CardContent>
@@ -158,7 +158,7 @@ export function ExportPanel() {
 
       <div className="flex flex-col items-center gap-4">
         {exportComplete && (
-          <div className="flex items-center gap-2 text-green-600">
+          <div className="flex items-center gap-2 text-success">
             <CheckCircle className="h-5 w-5" />
             <span className="font-medium">Export completed successfully!</span>
           </div>

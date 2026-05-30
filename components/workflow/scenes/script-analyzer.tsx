@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/common/loading-spinner';
 import { Card } from '@/components/ui/card';
 import { FileSearch } from 'lucide-react';
 import { countWords } from '@/lib/utils/word-count';
+import { SECONDS_PER_SCENE } from '@/lib/constants';
 
 interface ScriptAnalyzerProps {
   onComplete?: () => void;
@@ -37,7 +38,7 @@ export function ScriptAnalyzer({ onComplete }: ScriptAnalyzerProps) {
     const scriptContent = script.content;
 
     setGenerating(true);
-    setProgressText('Connecting to Claude Sonnet 4...');
+    setProgressText('Breaking your script into scenes...');
 
     try {
       const response = await fetch('/api/analyze/script', {
@@ -133,7 +134,7 @@ export function ScriptAnalyzer({ onComplete }: ScriptAnalyzerProps) {
   const scriptContent = script?.content || '';
   const wordCount = countWords(scriptContent);
   const estimatedDurationMinutes = Math.ceil(wordCount / 150);
-  const expectedScenes = Math.round((estimatedDurationMinutes * 60) / 6); // ~6 seconds per scene
+  const expectedScenes = Math.round((estimatedDurationMinutes * 60) / SECONDS_PER_SCENE); // ~30s per scene
 
   return (
     <Card className="p-8">
@@ -149,7 +150,7 @@ export function ScriptAnalyzer({ onComplete }: ScriptAnalyzerProps) {
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold font-serif">Analyzing Your Historical Narrative</h3>
+          <h3 className="text-xl font-semibold font-serif">Breaking Your Script Into Scenes</h3>
           <p className="text-muted-foreground">
             Analyzing {wordCount}-word script (~{estimatedDurationMinutes} min narration)...
           </p>
@@ -171,11 +172,11 @@ export function ScriptAnalyzer({ onComplete }: ScriptAnalyzerProps) {
             <>
               <div className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-primary rounded-full animate-pulse"></div>
-                <span>Creating ~{expectedScenes} cinematic scenes</span>
+                <span>Creating ~{expectedScenes} calming scenes (~{SECONDS_PER_SCENE}s each)</span>
               </div>
               <div className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-primary rounded-full animate-pulse"></div>
-                <span>Preparing oil painting style prompts</span>
+                <span>Preparing dark, dreamlike image prompts</span>
               </div>
             </>
           )}

@@ -4,10 +4,9 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/lib/store';
 import { SceneBreakdown } from '@/components/workflow/scene-breakdown';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, FileText, Sparkles } from 'lucide-react';
+import { ArrowRight, FileText, Sparkles, Film, CheckCircle2 } from 'lucide-react';
 import { countWords } from '@/lib/utils/word-count';
 
 export default function ScenesPage() {
@@ -16,16 +15,15 @@ export default function ScenesPage() {
   const [localScript, setLocalScript] = useState('');
   const [isScriptSet, setIsScriptSet] = useState(!!script?.content);
 
-  // Check if all scenes are generated
-  const allScenesGenerated = storyboardScenes.length > 0 &&
-    storyboardScenes.every(scene => scene.generation_status === 'completed');
+  const allScenesGenerated =
+    storyboardScenes.length > 0 &&
+    storyboardScenes.every((scene) => scene.generation_status === 'completed');
 
   const handleSetScript = () => {
     if (localScript.trim()) {
-      const wordCount = countWords(localScript);
       setScript({
         content: localScript,
-        word_count: wordCount,
+        word_count: countWords(localScript),
         generated_at: new Date(),
       });
       setIsScriptSet(true);
@@ -40,109 +38,91 @@ export default function ScenesPage() {
   const wordCount = countWords(localScript);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Page Header */}
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
-              Scene Generator
-            </h1>
-            <p className="text-sm text-gray-600">
-              Generate visual scenes from your script
-            </p>
-          </div>
-
-          {/* Script Input Section - Show only if script not set */}
-          {!isScriptSet && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Your Script
-                </CardTitle>
-                <CardDescription>
-                  Paste or type your script below to generate visual scenes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={localScript}
-                  onChange={(e) => setLocalScript(e.target.value)}
-                  placeholder="Paste your script here..."
-                  className="min-h-[300px] font-mono text-sm"
-                />
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    {wordCount} words • ~{Math.round(wordCount / 150)} min read
-                  </div>
-                  <Button
-                    onClick={handleSetScript}
-                    disabled={!localScript.trim()}
-                    className="gap-2"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Generate Scenes
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Scene Breakdown Component - Show only if script is set */}
-          {isScriptSet && (
-            <>
-              <Card className="p-6">
-                <SceneBreakdown />
-              </Card>
-
-              {/* Edit Script Button */}
-              <div className="text-center">
-                <Button
-                  variant="outline"
-                  onClick={handleClearScript}
-                  className="gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  Change Script
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* Continue to Export Button */}
-          {allScenesGenerated && (
-            <Card className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    Scenes Complete!
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    All scenes have been generated. Continue to export your work.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => router.push('/export')}
-                  className="gap-2"
-                  size="lg"
-                >
-                  Continue to Export
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {/* Footer */}
-          <footer className="text-center text-sm text-gray-500 py-4">
-            <p>
-              Session-only application • No data is saved • Export your work before leaving
-            </p>
-          </footer>
+    <div className="mx-auto max-w-5xl px-5 py-12 sm:py-16">
+      <div className="stagger space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/40 px-3.5 py-1.5 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+            <Film className="h-3.5 w-3.5 text-primary" /> Step Two · The Scenes
+          </span>
+          <h1 className="mt-6 font-display text-4xl font-light tracking-tight sm:text-5xl">
+            Break it into <span className="text-aurora italic">dark, drifting imagery.</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+            Every word lands in exactly one scene — no gaps — each paired with a calm, low-key
+            cinematic prompt drawn from your script.
+          </p>
         </div>
-      </main>
+
+        {/* Script input */}
+        {!isScriptSet && (
+          <div className="glass-card p-2">
+            <div className="rounded-[calc(var(--radius-lg)-6px)] bg-background/40 p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground/90">
+                  <FileText className="h-4 w-4 text-primary" /> Your script
+                </label>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {wordCount} words · ~{Math.max(1, Math.round(wordCount / 150))} min read
+                </span>
+              </div>
+              <Textarea
+                value={localScript}
+                onChange={(e) => setLocalScript(e.target.value)}
+                placeholder="Paste your narration-ready script here…"
+                className="min-h-[300px] resize-none border-0 bg-transparent px-0 font-mono text-[15px] leading-relaxed shadow-none focus-visible:ring-0"
+              />
+            </div>
+            <Button
+              onClick={handleSetScript}
+              disabled={!localScript.trim()}
+              className="mt-2 h-14 w-full rounded-[calc(var(--radius-lg)-6px)] text-base moon-glow"
+            >
+              <Sparkles className="mr-2 h-5 w-5" /> Generate scenes
+            </Button>
+          </div>
+        )}
+
+        {/* Scene breakdown */}
+        {isScriptSet && (
+          <>
+            <div className="glass-card p-6 sm:p-8">
+              <SceneBreakdown />
+            </div>
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                onClick={handleClearScript}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <FileText className="mr-2 h-4 w-4" /> Change script
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* Continue */}
+        {allScenesGenerated && (
+          <div className="glass-card flex flex-col items-center justify-between gap-4 p-6 sm:flex-row">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-success/10 text-success">
+                <CheckCircle2 className="h-6 w-6" />
+              </span>
+              <div>
+                <h3 className="font-display text-lg">Scenes complete</h3>
+                <p className="text-sm text-muted-foreground">Every scene is rendered. Time to export.</p>
+              </div>
+            </div>
+            <Button onClick={() => router.push('/export')} size="lg" className="moon-glow">
+              Continue to export <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        <footer className="pt-2 text-center text-xs text-muted-foreground/70">
+          Session-only · nothing is saved · export before you leave
+        </footer>
+      </div>
     </div>
   );
 }
