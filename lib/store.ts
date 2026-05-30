@@ -6,6 +6,7 @@ const initialState = {
   script: null,
   scenes: [],
   storyboardScenes: [],
+  audio: null,
   isGenerating: false,
   errors: [],
   sceneGenerationProgress: 0,
@@ -26,6 +27,8 @@ export const useSessionStore = create<SessionStore>((set) => ({
         scene.scene_number === sceneNumber ? { ...scene, ...updates } : scene
       ),
     })),
+
+  setAudio: (audio) => set({ audio }),
 
   setStep: (step) => set({ currentStep: step }),
 

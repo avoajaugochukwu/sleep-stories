@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils/cn';
 
 const navItems = [
   { path: '/scenes', label: 'Scenes', step: '01' },
-  { path: '/export', label: 'Export', step: '02' },
+  { path: '/render', label: 'Render', step: '02' },
+  { path: '/export', label: 'Export', step: '03' },
 ];
 
 export function AppHeader() {

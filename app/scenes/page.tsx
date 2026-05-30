@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowRight, FileText, Sparkles, Film, CheckCircle2 } from 'lucide-react';
 import { countWords } from '@/lib/utils/word-count';
+import { AudioUploader } from '@/components/workflow/audio-uploader';
 
 export default function ScenesPage() {
   const router = useRouter();
@@ -52,6 +53,14 @@ export default function ScenesPage() {
             Every word lands in exactly one scene — no gaps — each paired with a calm, low-key
             cinematic prompt drawn from your script.
           </p>
+        </div>
+
+        {/* Narration audio — collected together with the script. Persists
+            across the breakdown so it's ready at the render step. */}
+        <div className="glass-card p-2">
+          <div className="rounded-[calc(var(--radius-lg)-6px)] bg-background/40 p-3">
+            <AudioUploader />
+          </div>
         </div>
 
         {/* Script input */}
@@ -110,11 +119,11 @@ export default function ScenesPage() {
               </span>
               <div>
                 <h3 className="font-display text-lg">Scenes complete</h3>
-                <p className="text-sm text-muted-foreground">Every scene is rendered. Time to export.</p>
+                <p className="text-sm text-muted-foreground">Every scene is rendered. Time to make the video.</p>
               </div>
             </div>
-            <Button onClick={() => router.push('/export')} size="lg" className="moon-glow">
-              Continue to export <ArrowRight className="ml-2 h-4 w-4" />
+            <Button onClick={() => router.push('/render')} size="lg" className="moon-glow">
+              Continue to render <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         )}

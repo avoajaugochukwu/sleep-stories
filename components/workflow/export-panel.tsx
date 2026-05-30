@@ -34,7 +34,7 @@ export function ExportPanel() {
   const [exportComplete, setExportComplete] = useState(false);
 
   const handlePrevious = () => {
-    router.push('/scenes');
+    router.push('/render');
   };
 
   const getEstimatedSize = () => {

@@ -25,8 +25,17 @@ export interface StoryboardScene extends Scene {
   image_pool_index?: number; // Index in the image pool this scene is using
 }
 
+// Narration audio, uploaded alongside the script. Stored as an S3 object key
+// (private) plus the real measured duration used to time the video.
+export interface AudioAsset {
+  key: string; // S3 object key (audio/...)
+  fileName: string;
+  durationSec: number;
+  sizeBytes: number;
+}
+
 // Workflow Management
-export type WorkflowStep = 1 | 2 | 3; // Scenes → Export
+export type WorkflowStep = 1 | 2 | 3; // Scenes → Render → Export
 
 export interface SessionStore {
   // Current workflow step
@@ -36,6 +45,9 @@ export interface SessionStore {
   script: Script | null;
   scenes: Scene[];
   storyboardScenes: StoryboardScene[];
+
+  // Narration audio (collected with the script)
+  audio: AudioAsset | null;
 
   // Workflow state
   isGenerating: boolean;
@@ -47,6 +59,7 @@ export interface SessionStore {
   setScenes: (scenes: Scene[]) => void;
   setStoryboardScenes: (scenes: StoryboardScene[]) => void;
   updateStoryboardScene: (sceneNumber: number, updates: Partial<StoryboardScene>) => void;
+  setAudio: (audio: AudioAsset | null) => void;
   setStep: (step: WorkflowStep) => void;
   setGenerating: (isGenerating: boolean) => void;
   setSceneGenerationProgress: (progress: number) => void;
