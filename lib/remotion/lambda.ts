@@ -60,10 +60,11 @@ export async function startSleepRender(
     privacy: "public",
     jpegQuality: 80,
     framesPerLambda: computeFramesPerLambda(input.durationInFrames),
-    // 10240 MB ≈ 6 vCPUs, so render 4 frames in parallel inside each Lambda.
-    // Combined with the fan-out and us-west-2's 1500 concurrency limit, even
-    // long narrations render fast.
-    concurrencyPerLambda: 4,
+    // 10240 MB ≈ ~5.8 vCPUs. Render 5 frames in parallel so the cores stay
+    // saturated — Lambda bills the single function's wall-time while all 5 cores
+    // work, so more frames per billed-second ≈ lower cost per frame (no quality
+    // change). ~2 GB/frame headroom at 1080p, comfortably within 10 GB.
+    concurrencyPerLambda: 5,
     maxRetries: 2,
     outName: `${slug(input.title)}.mp4`,
   });

@@ -85,8 +85,10 @@ export function scheduleOverlays(totalFrames: number, fps: number): SleepOverlay
 }
 
 // Render geometry. 30fps is plenty for slow sleep visuals and keeps the frame
-// count (and Lambda cost) reasonable for long narrations.
-export const RENDER_FPS = 30;
+// count (and Lambda cost) reasonable for long narrations. 24fps (cinematic) —
+// the visuals are deliberately slow, so the drop from 30 is invisible but cuts
+// frame count (and therefore Lambda compute) by ~20%.
+export const RENDER_FPS = 24;
 export const RENDER_WIDTH = 1920;
 export const RENDER_HEIGHT = 1080;
 
