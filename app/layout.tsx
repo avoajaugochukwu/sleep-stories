@@ -3,7 +3,6 @@ import { Fraunces, Hanken_Grotesk, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import { AppHeader } from "@/components/common/app-header";
-import { DevelopmentToolbar } from "@/components/common/development-toolbar";
 
 // Display: a soft, optical, dreamy serif — characterful without being loud
 const fraunces = Fraunces({
@@ -49,7 +48,6 @@ export default function RootLayout({
 
         <AppHeader />
         <main className="relative">{children}</main>
-        <DevelopmentToolbar />
         <Toaster
           position="top-right"
           toastOptions={{

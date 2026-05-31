@@ -149,7 +149,7 @@ export function RenderPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scenes: storyboardScenes,
-          audioKey: audio.key,
+          audioUrl: audio.url,
           audioDurationSec: audio.durationSec,
         }),
       });
@@ -200,8 +200,8 @@ export function RenderPanel() {
             label="Narration audio"
             detail={
               audio
-                ? `${audio.fileName} · ${fmtDuration(audio.durationSec)}`
-                : "Upload it on the Scenes step"
+                ? `Linked · ${fmtDuration(audio.durationSec)}`
+                : "Add its S3 URL on the Scenes step"
             }
             icon={AudioLines}
           />
@@ -317,8 +317,8 @@ export function RenderPanel() {
 
       <NavigationButtons
         onPrevious={() => router.push("/scenes")}
-        onNext={() => router.push("/export")}
-        nextLabel="Export assets"
+        showNext={false}
+        showReset={false}
       />
     </div>
   );

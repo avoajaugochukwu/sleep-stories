@@ -25,13 +25,12 @@ export interface StoryboardScene extends Scene {
   image_pool_index?: number; // Index in the image pool this scene is using
 }
 
-// Narration audio, uploaded alongside the script. Stored as an S3 object key
-// (private) plus the real measured duration used to time the video.
+// Narration audio referenced by a URL the user provides (an object already in
+// their S3 bucket). We never upload it — we just read its real duration in the
+// browser to time the video, then hand the URL straight to the renderer.
 export interface AudioAsset {
-  key: string; // S3 object key (audio/...)
-  fileName: string;
+  url: string; // public or presigned S3 URL to the audio file
   durationSec: number;
-  sizeBytes: number;
 }
 
 // A single Lambda render attempt. We keep many so you can fire off multiple
@@ -49,7 +48,7 @@ export interface RenderJob {
 }
 
 // Workflow Management
-export type WorkflowStep = 1 | 2 | 3; // Scenes → Render → Export
+export type WorkflowStep = 1 | 2; // Scenes → Render
 
 export interface SessionStore {
   // Current workflow step

@@ -3,14 +3,13 @@ import type { StoryboardScene } from "@/lib/types";
 import { buildSleepVideoInput } from "@/lib/remotion/build-input";
 import { planStoryText } from "@/lib/scene-engine/story-text";
 import { startSleepRender } from "@/lib/remotion/lambda";
-import { presignAudioDownload } from "@/lib/aws/s3";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type Body = {
   scenes?: StoryboardScene[];
-  audioKey?: string;
+  audioUrl?: string;
   audioDurationSec?: number;
 };
 
@@ -22,14 +21,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Body must be JSON" }, { status: 400 });
   }
 
-  const { scenes, audioKey, audioDurationSec } = body;
+  const { scenes, audioUrl, audioDurationSec } = body;
 
   if (!Array.isArray(scenes) || scenes.length === 0) {
     return NextResponse.json({ error: "No scenes provided" }, { status: 400 });
   }
-  if (!audioKey) {
+  if (!audioUrl) {
     return NextResponse.json(
-      { error: "Missing audioKey — upload the narration audio first" },
+      { error: "Missing audioUrl — add the narration audio URL first" },
       { status: 400 },
     );
   }
@@ -41,9 +40,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Presigned GET so the Lambda can fetch the (private) audio over HTTPS.
-    const audioUrl = await presignAudioDownload(audioKey);
-
+    // The user-provided URL points straight at their S3 object — hand it to the
+    // Lambda as-is. No upload, no presign: just the link.
     const input = buildSleepVideoInput({
       scenes,
       audioUrl,

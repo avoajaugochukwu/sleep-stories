@@ -13,6 +13,7 @@ interface NavigationButtonsProps {
   previousDisabled?: boolean;
   nextLabel?: string;
   showReset?: boolean;
+  showNext?: boolean;
 }
 
 export function NavigationButtons({
@@ -22,6 +23,7 @@ export function NavigationButtons({
   previousDisabled = false,
   nextLabel = "Next",
   showReset = true,
+  showNext = true,
 }: NavigationButtonsProps) {
   const { currentStep, reset, setStep } = useSessionStore();
 
@@ -36,7 +38,7 @@ export function NavigationButtons({
   const handleNext = () => {
     if (onNext) {
       onNext();
-    } else if (currentStep < 4) {
+    } else if (currentStep < 2) {
       setStep((currentStep + 1) as WorkflowStep);
     }
   };
@@ -68,13 +70,17 @@ export function NavigationButtons({
         </Button>
       )}
 
-      <Button
-        onClick={handleNext}
-        disabled={nextDisabled}
-      >
-        {nextLabel}
-        {nextLabel === "Next" && <ChevronRight className="ml-2 h-4 w-4" />}
-      </Button>
+      {showNext ? (
+        <Button
+          onClick={handleNext}
+          disabled={nextDisabled}
+        >
+          {nextLabel}
+          {nextLabel === "Next" && <ChevronRight className="ml-2 h-4 w-4" />}
+        </Button>
+      ) : (
+        <span />
+      )}
     </div>
   );
 }

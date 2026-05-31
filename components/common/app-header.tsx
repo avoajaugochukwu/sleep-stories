@@ -1,82 +1,73 @@
 "use client";
 
 import React from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { Moon } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Moon, RotateCcw } from 'lucide-react';
+import { useSessionStore } from '@/lib/store';
 
-const navItems = [
+const STEPS = [
   { path: '/scenes', label: 'Scenes', step: '01' },
   { path: '/render', label: 'Render', step: '02' },
-  { path: '/export', label: 'Export', step: '03' },
 ];
 
 export function AppHeader() {
   const pathname = usePathname();
-  const router = useRouter();
+  const reset = useSessionStore((s) => s.reset);
 
-  const activeIndex = navItems.findIndex((i) => pathname?.startsWith(i.path));
+  // Hide the workflow stepper on the landing page
+  const isLanding = pathname === '/';
+
+  const handleReset = () => {
+    if (confirm('Are you sure you want to start over? All current progress will be lost.')) {
+      reset();
+    }
+  };
 
   return (
-    <header className="sticky top-0 z-40">
-      <div className="absolute inset-0 -z-10 bg-background/55 backdrop-blur-xl border-b border-border/60" />
-      <div className="mx-auto max-w-6xl px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
-          {/* Brand */}
-          <button
-            onClick={() => router.push('/scenes')}
-            className="group flex items-center gap-3"
-          >
-            <span className="orbit-glow relative grid h-10 w-10 place-items-center rounded-full bg-secondary/70 moon-glow">
-              <Moon className="h-5 w-5 text-primary animate-breathe" strokeWidth={1.75} />
-            </span>
-            <span className="flex flex-col items-start leading-none">
-              <span className="font-display text-lg font-medium tracking-tight text-aurora">
-                Sleep Stories
-              </span>
-              <span className="mt-1 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
-                Nocturne Studio
-              </span>
-            </span>
-          </button>
+    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+        <Link href="/" className="group flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-secondary/70 text-primary ring-1 ring-border/60 transition-transform group-hover:scale-105">
+            <Moon className="h-5 w-5" />
+          </span>
+          <span className="leading-tight">
+            <span className="block font-display text-xl tracking-tight">Sleep Stories</span>
+            <span className="block text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Nocturne Studio</span>
+          </span>
+        </Link>
 
-          {/* Step navigation */}
-          <nav className="orbit-border flex items-center gap-1 rounded-full border border-border/70 bg-secondary/40 p-1 backdrop-blur-sm">
-            {navItems.map((item, i) => {
-              const active = pathname?.startsWith(item.path);
-              const done = activeIndex > i;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => router.push(item.path)}
-                  className={cn(
-                    'group relative flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm transition-all duration-300 sm:px-4',
-                    active
-                      ? 'bg-primary/15 text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'font-mono text-[10px] tabular-nums transition-colors',
+        {!isLanding && (
+          <div className="flex items-center gap-3">
+            <nav className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/30 p-1.5">
+              {STEPS.map((s) => {
+                const active = pathname === s.path;
+                return (
+                  <Link
+                    key={s.path}
+                    href={s.path}
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
                       active
-                        ? 'text-primary'
-                        : done
-                        ? 'text-accent'
-                        : 'text-muted-foreground'
-                    )}
+                        ? 'bg-primary/15 text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    {item.step}
-                  </span>
-                  <span className="font-medium tracking-tight">{item.label}</span>
-                  {active && (
-                    <span className="absolute inset-x-3 -bottom-px h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+                    <span className="font-mono text-xs text-primary/70">{s.step}</span>
+                    {s.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-border"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Start Over
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

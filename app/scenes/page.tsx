@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowRight, FileText, Sparkles, Film, CheckCircle2 } from 'lucide-react';
 import { countWords } from '@/lib/utils/word-count';
-import { AudioUploader } from '@/components/workflow/audio-uploader';
+import { AudioUrlInput } from '@/components/workflow/audio-url-input';
 
 export default function ScenesPage() {
   const router = useRouter();
@@ -59,7 +59,7 @@ export default function ScenesPage() {
             across the breakdown so it's ready at the render step. */}
         <div className="glass-card p-2">
           <div className="rounded-[calc(var(--radius-lg)-6px)] bg-background/40 p-3">
-            <AudioUploader />
+            <AudioUrlInput />
           </div>
         </div>
 
