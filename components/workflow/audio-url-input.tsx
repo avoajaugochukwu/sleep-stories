@@ -26,11 +26,12 @@ function isHttpUrl(value: string): boolean {
 // Read the real audio duration in the browser straight from the URL — the file
 // stays in S3, nothing is uploaded. Some encodes report Infinity until you
 // nudge currentTime, so we handle that case the same way the old uploader did.
+// No crossOrigin: we only read `duration`, which doesn't need CORS, and setting
+// it would make buckets without an Access-Control-Allow-Origin header fail.
 function readDurationFromUrl(url: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const el = document.createElement("audio");
     el.preload = "metadata";
-    el.crossOrigin = "anonymous";
     el.onloadedmetadata = () => {
       if (el.duration === Infinity || Number.isNaN(el.duration)) {
         el.onseeked = () => resolve(el.duration);
