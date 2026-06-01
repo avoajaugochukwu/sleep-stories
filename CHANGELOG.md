@@ -5,6 +5,16 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-01
 
+- **Fixed `inputRange must be strictly monotonically increasing [0,51,51,102]`
+  render crash.** Fade envelopes in `remotion/effects/OverlayVideos.tsx` and
+  `remotion/text/StoryCaptions.tsx` built a 4-point interpolate range
+  `[0, fade, dur-fade, dur]`. When a clip's duration was even and `fadeFrames >=
+  dur/2`, `fade = floor(dur/2)` made the two middle points equal (e.g. dur 102,
+  fade 51), which Remotion rejects. Triggered by the final short overlay sliver
+  from `scheduleOverlays`. Fix: clamp `fade = min(fadeFrames, floor((dur-1)/2))`
+  so the range is always strictly increasing. `remotion/**` change → required
+  `npm run deploy:site` (Lambda renders the deployed bundle).
+
 - **`MAX_CHUNKS` stays 200 — Remotion hard-caps functions at 200.** Briefly
   tried 400 for timeout headroom; Remotion rejected the render outright with
   "Too many functions: This render would cause 400 functions to spawn. We limit
