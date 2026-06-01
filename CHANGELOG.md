@@ -5,13 +5,15 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-01
 
-- **Render fan-out `MAX_CHUNKS` 200 → 400** (`lib/remotion/lambda.ts`). Each
-  render Lambda has a hard 900s ceiling; the only lever for long videos is fewer
-  frames per chunk. Verified the AWS account allows **1500** concurrent Lambdas
-  (`GetAccountSettings`), not the 10 an old code comment claimed — so all chunks
-  run in parallel and 400 is well within budget. Server-side change (not in the
-  Remotion bundle): no `deploy:site`, but it must ship to Railway via a code
-  deploy. Memory (10240 MB) and timeout (900s) are already at AWS maximums.
+- **`MAX_CHUNKS` stays 200 — Remotion hard-caps functions at 200.** Briefly
+  tried 400 for timeout headroom; Remotion rejected the render outright with
+  "Too many functions: This render would cause 400 functions to spawn. We limit
+  this amount to 200." The cap is a Remotion limit, independent of our 1500 AWS
+  account concurrency (verified via `GetAccountSettings`) — so 200 is a ceiling,
+  not a tunable. Consequence: for very long stories (a ~2.2h render = ~193k
+  frames → ~965 frames/chunk) the only levers left against the 900s/chunk limit
+  are fps/resolution, since memory (10240 MB) and timeout (900s) are already at
+  AWS maximums.
 
 - **Lambda render disk 2048 MB → 8192 MB.** Renders failed with
   `ENOSPC: no space left on device` while writing to `/tmp`. Long sleep renders
