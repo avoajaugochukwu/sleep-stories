@@ -5,6 +5,17 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-01
 
+- **Added `crf: 26` to the render — fixes ENOSPC at the final concat/mux.** With
+  Remotion's default h264 CRF (~18) the encode ran ~6 Mbps; a 2.2h story = ~5.7 GB
+  of chunks. The final stitch runs on ONE Lambda and holds ALL 200 chunks +
+  audio + the growing output in `/tmp` simultaneously (~11.5 GB needed), so it
+  overflowed even the 8 GB disk during `ffmpeg` mux (`No space left on device`,
+  exit 228). Bumping disk can't fix it (10 GB collides with prod's name, and even
+  that's < 11.5 GB). CRF 26 ≈ ~2 Mbps shrinks chunks+output ~3× (fits well under
+  8 GB), cuts cost, and yields a sane file size; grain/fog overlays dither any
+  banding. In `lib/remotion/lambda.ts` (server-side, ships via Railway — no
+  `deploy:site`/`deploy:lambda`). Lower the CRF number for higher quality.
+
 - **Fixed `inputRange must be strictly monotonically increasing [0,51,51,102]`
   render crash.** Fade envelopes in `remotion/effects/OverlayVideos.tsx` and
   `remotion/text/StoryCaptions.tsx` built a 4-point interpolate range

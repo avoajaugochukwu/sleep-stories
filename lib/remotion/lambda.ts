@@ -63,6 +63,14 @@ export async function startSleepRender(
     imageFormat: "jpeg",
     privacy: "public",
     jpegQuality: 80,
+    // CRF 26 (Remotion's h264 default is ~18, which produced ~6 Mbps = absurd
+    // for slow, dark, near-static sleep imagery — a 2.2h render hit ~5.7 GB).
+    // The final concat on ONE Lambda must hold ALL chunks (~full size) PLUS the
+    // growing output PLUS audio in /tmp at once, so ~6 Mbps overflowed even the
+    // 8 GB disk (ENOSPC at the mux). CRF 26 ≈ ~2 Mbps: chunks+output+audio fits
+    // well under 8 GB, cost drops, and grain/fog overlays dither any banding in
+    // the dark gradients. Lower this number for higher quality (larger files).
+    crf: 26,
     framesPerLambda: computeFramesPerLambda(input.durationInFrames),
     // 10240 MB ≈ ~5.8 vCPUs. Render 5 frames in parallel so the cores stay
     // saturated — Lambda bills the single function's wall-time while all 5 cores
