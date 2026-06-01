@@ -15,13 +15,19 @@ const Line: React.FC<{ o: StoryTextOverlay }> = ({ o }) => {
   const frame = useCurrentFrame(); // local to this caption's Sequence
   const { durationInFrames, fadeFrames } = o;
 
+  // Clamp fade to STRICTLY under half the caption so the 4-point envelope stays
+  // strictly increasing — otherwise a short caption (duration <= 2*fadeFrames)
+  // makes the middle keyframes collide/cross and interpolate throws
+  // "inputRange must be strictly monotonically increasing".
+  const fade = Math.min(fadeFrames, Math.floor((durationInFrames - 1) / 2));
+
   const opacity = interpolate(
     frame,
-    [0, fadeFrames, durationInFrames - fadeFrames, durationInFrames],
+    [0, fade, durationInFrames - fade, durationInFrames],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
-  const translateY = interpolate(frame, [0, fadeFrames], [10, 0], {
+  const translateY = interpolate(frame, [0, fade], [10, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

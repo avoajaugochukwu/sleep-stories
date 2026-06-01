@@ -37,8 +37,13 @@ const OverlayClip: React.FC<{ o: SleepOverlay }> = ({ o }) => {
     Math.floor((o.durationInSeconds * fps) / o.playbackRate) - 1,
   );
 
-  // Fade in/out, clamped so it never exceeds half the appearance.
-  const fade = Math.min(o.fadeFrames, Math.floor(o.durationInFrames / 2));
+  // Fade in/out, clamped to STRICTLY under half the appearance. Using
+  // floor(duration/2) lets the two middle keyframes collide when duration is
+  // even (e.g. dur 102, fade 51 -> [0,51,51,102]), which makes interpolate throw
+  // "inputRange must be strictly monotonically increasing". (duration-1)/2
+  // guarantees duration-fade > fade for any duration >= 3 (overlay durations are
+  // always >= fadeFrames, so far larger than that).
+  const fade = Math.min(o.fadeFrames, Math.floor((o.durationInFrames - 1) / 2));
   const env = interpolate(
     frame,
     [0, fade, o.durationInFrames - fade, o.durationInFrames],
