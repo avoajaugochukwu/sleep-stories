@@ -22,6 +22,12 @@ Verify the exit code when each job completes; non-zero = stale code on Lambda.
 **Type-check after edits.** Run `npx tsc --noEmit` after editing any `.ts`/`.tsx`
 (the Next build also type-checks, but tsc is faster for a quick pass).
 
+**Update `CHANGELOG.md` — do not ask.** After any infra/config change (Lambda
+disk/memory, bucket, env vars, deploy scripts) or any non-obvious bug fix,
+prepend an entry to `CHANGELOG.md` under today's date (newest first): what
+changed, *why* (the symptom/error), and any name/env value that moved. This is
+how we avoid relearning the same failures.
+
 ## AWS facts (don't relearn these)
 
 - Region **us-west-2** (same as the remotion-test-2 production stack, for its

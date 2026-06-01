@@ -6,11 +6,16 @@ import type { SleepVideoInputProps } from "./types";
 
 const region = process.env.AWS_REGION ?? "us-west-2";
 
-// Speed strategy: fan out into as many chunks as Remotion allows (hard cap
-// 200) so that, once the account concurrency increase lands (10 -> 5000),
-// nearly the whole video renders in parallel. Until then chunks simply queue
-// 10-at-a-time, so there's no downside to maximising the fan-out now.
-const MAX_CHUNKS = 200;
+// Speed strategy: fan out into many chunks that render in parallel, then a
+// "main" Lambda stitches them. Account concurrency is 1500 (verified via
+// GetAccountSettings), so all 200 chunks run at once — no queueing. This is the
+// real lever against the 900s/Lambda ceiling: each chunk only renders
+// totalFrames/MAX_CHUNKS frames, so for very long videos raise MAX_CHUNKS
+// (we use 200 of 1500 available) rather than memory/disk/timeout, which are
+// already maxed (10240 MB ≈ 5.8 vCPU; 900s is the AWS hard cap). 400 chunks of
+// the 1500 concurrency budget keeps frames-per-chunk low so even multi-hour
+// stories stay well under 900s per chunk; raise further if a chunk ever nears it.
+const MAX_CHUNKS = 400;
 // Small floor so short test clips still split into a few parallel chunks
 // instead of one slow Lambda.
 const MIN_FRAMES_PER_LAMBDA = 60;
