@@ -37,6 +37,18 @@ function fmtDuration(sec: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${r}s`;
 }
 
+// Elapsed render time, e.g. "47s", "3m 12s", "1h 04m". Counts up live while a
+// render runs, then freezes at the done/error moment (via finishedAt).
+function fmtElapsed(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m ${r}s`;
+  return `${r}s`;
+}
+
 function fmtAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.round(diff / 60000);
@@ -105,6 +117,7 @@ export function RenderPanel() {
             if (p.fatalErrorEncountered) {
               updateRender(r.renderId, {
                 status: "error",
+                finishedAt: Date.now(),
                 error: p.errors?.[0]?.message ?? "Render failed on Lambda",
               });
               return;
@@ -112,6 +125,7 @@ export function RenderPanel() {
             if (p.done) {
               updateRender(r.renderId, {
                 status: "done",
+                finishedAt: Date.now(),
                 progress: 1,
                 outputFile: p.outputFile,
                 cost: p.costsAccrued ?? undefined,
@@ -332,6 +346,21 @@ function SessionRenderRow({
   onRemove: (renderId: string) => void;
 }) {
   const pct = Math.round(job.progress * 100);
+
+  // Tick a clock every second while rendering so the elapsed time counts up;
+  // once done/error we read the frozen finishedAt instead.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (job.status !== "rendering") return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [job.status]);
+
+  const showElapsed = job.status === "rendering" || job.finishedAt != null;
+  const elapsedMs =
+    (job.status === "rendering" ? now : job.finishedAt ?? job.createdAt) -
+    job.createdAt;
+
   return (
     <div className="rounded-lg border border-border/60 bg-background/40 p-3">
       <div className="flex items-center justify-between gap-3">
@@ -341,6 +370,7 @@ function SessionRenderRow({
             {job.status === "rendering" && `Rendering… ${pct}%`}
             {job.status === "done" && "Ready"}
             {job.status === "error" && "Failed"}
+            {showElapsed && ` · ${fmtElapsed(elapsedMs)}`}
             {job.cost != null && ` · ~$${job.cost.toFixed(3)}`}
           </p>
         </div>

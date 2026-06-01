@@ -40,6 +40,7 @@ export interface RenderJob {
   bucketName: string;
   title: string;
   createdAt: number; // epoch ms
+  finishedAt?: number; // epoch ms when it reached done/error — freezes elapsed time
   status: 'rendering' | 'done' | 'error';
   progress: number; // 0..1
   outputFile?: string;
