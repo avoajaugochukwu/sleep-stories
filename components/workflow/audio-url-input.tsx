@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useSessionStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { AudioLines, CheckCircle2, Loader2, Link2, X } from "lucide-react";
+import {
+  AudioLines,
+  CheckCircle2,
+  Loader2,
+  Link2,
+  Upload,
+  X,
+} from "lucide-react";
 
 function formatDuration(sec: number): string {
   const s = Math.round(sec);
@@ -50,6 +57,15 @@ function readDurationFromUrl(url: string): Promise<number> {
   });
 }
 
+// Read duration from a local File without any network: point an <audio> at a
+// short-lived object URL, then revoke it. Reuses the same Infinity-nudge logic.
+function readDurationFromFile(file: File): Promise<number> {
+  const objectUrl = URL.createObjectURL(file);
+  return readDurationFromUrl(objectUrl).finally(() =>
+    URL.revokeObjectURL(objectUrl),
+  );
+}
+
 // Shortened display for a long S3 URL (keep the filename, drop query strings).
 function prettyUrl(url: string): string {
   try {
@@ -65,7 +81,45 @@ export function AudioUrlInput() {
   const { audio, setAudio } = useSessionStore();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload a local mp3 straight to S3 (presigned PUT) and use it as the
+  // narration — for quick test renders, no manual S3 upload + URL paste needed.
+  const handleFile = async (file: File) => {
+    setError(null);
+    if (!file.type.startsWith("audio/") && !/\.mp3$/i.test(file.name)) {
+      setError("Pick an audio file (mp3).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const contentType = file.type || "audio/mpeg";
+      // 1. Ask the server for a presigned PUT target in our audio/ prefix.
+      const res = await fetch("/api/audio/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not get an upload URL");
+      // 2. Upload the bytes directly to S3 (never through this app's server).
+      const put = await fetch(data.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: file,
+      });
+      if (!put.ok) throw new Error(`Upload to S3 failed (${put.status})`);
+      // 3. Read the duration locally and set it as the narration.
+      const durationSec = await readDurationFromFile(file);
+      setAudio({ url: data.publicUrl, durationSec });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleLoad = async () => {
     const trimmed = url.trim();
@@ -123,9 +177,44 @@ export function AudioUrlInput() {
         <div>
           <p className="text-sm font-medium">Narration audio</p>
           <p className="text-xs text-muted-foreground">
-            Paste the S3 URL of the voiceover — its length sets the video timing.
-            The file stays in your bucket; nothing is uploaded.
+            Upload an mp3 (great for quick tests) or paste the S3 URL of the
+            voiceover — its length sets the video timing.
           </p>
+        </div>
+
+        {/* Upload a local mp3 — goes straight to S3, no manual upload needed. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*,.mp3"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+            e.target.value = ""; // allow re-picking the same file
+          }}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || busy}
+          className="w-full max-w-md"
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading…
+            </>
+          ) : (
+            <>
+              <Upload className="mr-2 h-4 w-4" /> Upload mp3
+            </>
+          )}
+        </Button>
+
+        <div className="flex w-full max-w-md items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border/70" />
+          or paste a URL
+          <span className="h-px flex-1 bg-border/70" />
         </div>
 
         <div className="flex w-full max-w-md items-center gap-2">
@@ -139,11 +228,14 @@ export function AudioUrlInput() {
                 if (e.key === "Enter") void handleLoad();
               }}
               placeholder="https://your-bucket.s3.amazonaws.com/audio/narration.mp3"
-              disabled={busy}
+              disabled={busy || uploading}
               className="w-full rounded-md border border-border/70 bg-background/60 py-2 pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             />
           </div>
-          <Button onClick={() => void handleLoad()} disabled={busy || !url.trim()}>
+          <Button
+            onClick={() => void handleLoad()}
+            disabled={busy || uploading || !url.trim()}
+          >
             {busy ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…

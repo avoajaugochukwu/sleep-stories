@@ -3,6 +3,36 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-04
+
+- **Added in-app mp3 narration upload (presigned PUT → S3), for quick test
+  renders.** You no longer have to upload a voiceover to S3 by hand and paste the
+  URL: the narration step now has an "Upload mp3" button. `lib/aws/s3.ts` gains
+  `presignAudioUpload()` (uses the already-installed
+  `@aws-sdk/s3-request-presigner`) which mints a 10-min presigned PUT to
+  `audio/<uuid>-<name>` in `REMOTION_RENDER_BUCKET`; new route
+  `app/api/audio/upload-url` returns it. The browser PUTs the file straight to S3
+  (CORS for PUT already set in `deploy-site.mjs`, so the file never streams
+  through Railway / hits its body-size limit), reads the duration locally from the
+  File, and sets it as the narration. **Why presigned PUT, not a server upload:**
+  avoids the request-size ceiling for long mp3s. The bucket policy already makes
+  every object public-read, so Lambda fetches the `publicUrl` with no presigning;
+  the `audio/` lifecycle rule expires it after 7 days. App-code only (ships via
+  Railway) — no `deploy:site` needed.
+
+- **Added a looping fire-crackling ambience under the narration.** New
+  `SleepSoundEffect` type + optional `soundEffect` prop on `SleepVideoInputProps`;
+  `SleepStory.tsx` mixes it via `<Audio src={staticFile(...)} loop volume={…}>`
+  beneath the narration `<Audio>`. The clip lives in
+  `public/sound-effects/soundreality-fire-ambience-528618.mp3` (bundled into the
+  deployed site, so `staticFile()` resolves it on Lambda; `loop` repeats it to
+  fill any duration). `build-input.ts` exposes `FIRE_SOUND_EFFECT` (volume 0.18)
+  and takes `enableSoundEffect` (default true); the render panel has a "Fire
+  crackling ambience" checkbox (on by default) that posts `enableSoundEffect` to
+  `/api/render/start`. **Why off matters:** skipping it keeps quick test renders
+  light. `remotion/**` + `lib/remotion/types.ts` change → required
+  `npm run deploy:site` (Lambda renders the deployed bundle).
+
 ## 2026-06-01
 
 - **Added `crf: 26` to the render — fixes ENOSPC at the final concat/mux.** With

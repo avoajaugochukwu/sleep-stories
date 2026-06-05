@@ -1,4 +1,11 @@
-import { AbsoluteFill, Audio, interpolate, Sequence, useCurrentFrame } from "remotion";
+import {
+  AbsoluteFill,
+  Audio,
+  interpolate,
+  Sequence,
+  staticFile,
+  useCurrentFrame,
+} from "remotion";
 import type { SleepVideoInputProps } from "../lib/remotion/types";
 import { KenBurnsImage } from "./scenes/KenBurnsImage";
 import { Stars } from "./effects/Stars";
@@ -47,11 +54,23 @@ export const SleepStory: React.FC<SleepVideoInputProps> = ({
   crossfadeFrames,
   overlays = [],
   textOverlays = [],
+  soundEffect,
 }) => {
   const last = scenes.length - 1;
   return (
     <AbsoluteFill style={{ backgroundColor: "#04060d" }}>
       <Audio src={audioUrl} />
+
+      {/* Looping ambient sound effect (e.g. fire crackling) mixed under the
+          narration. `loop` repeats the clip to fill the whole timeline; omitted
+          entirely when toggled off so test renders stay light. */}
+      {soundEffect ? (
+        <Audio
+          src={staticFile(soundEffect.src)}
+          volume={soundEffect.volume}
+          loop
+        />
+      ) : null}
 
       {/* Scene images — soft crossfade between them. */}
       {scenes.map((s, i) => (

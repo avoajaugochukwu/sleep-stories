@@ -11,6 +11,8 @@ type Body = {
   scenes?: StoryboardScene[];
   audioUrl?: string;
   audioDurationSec?: number;
+  /** Mix the looping fire-crackling ambience under the narration. Default on. */
+  enableSoundEffect?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Body must be JSON" }, { status: 400 });
   }
 
-  const { scenes, audioUrl, audioDurationSec } = body;
+  const { scenes, audioUrl, audioDurationSec, enableSoundEffect } = body;
 
   if (!Array.isArray(scenes) || scenes.length === 0) {
     return NextResponse.json({ error: "No scenes provided" }, { status: 400 });
@@ -46,6 +48,8 @@ export async function POST(req: Request) {
       scenes,
       audioUrl,
       audioDurationSec,
+      // Default on when the client omits it (older callers keep the ambience).
+      enableSoundEffect: enableSoundEffect ?? true,
     });
 
     // Derive the title + bottom-left captions from the script (one Claude call).

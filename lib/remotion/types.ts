@@ -67,6 +67,20 @@ export interface SleepOverlay {
   flip?: boolean;
 }
 
+/**
+ * A looping ambient sound effect (e.g. fire crackling) mixed UNDER the
+ * narration for the whole video. The clip lives in public/sound-effects/ so
+ * staticFile() resolves it on Lambda; Remotion's <Audio loop> repeats it to
+ * fill the timeline. Omitted/undefined = no effect (e.g. toggled off for quick
+ * test renders).
+ */
+export interface SleepSoundEffect {
+  /** Path under public/ for staticFile(), e.g. "sound-effects/fire.mp3". */
+  src: string;
+  /** Playback volume (0–1). Kept low so it sits beneath the narration. */
+  volume: number;
+}
+
 export interface SleepVideoInputProps {
   // Remotion's <Composition> constrains input props to Record<string, unknown>.
   // The declared members below keep their precise types; this just satisfies
@@ -99,4 +113,9 @@ export interface SleepVideoInputProps {
    * video. Planned server-side; empty/omitted for very short clips.
    */
   textOverlays?: StoryTextOverlay[];
+  /**
+   * Looping ambient sound effect mixed under the narration (e.g. fire
+   * crackling). Omitted when toggled off — handy for fast test renders.
+   */
+  soundEffect?: SleepSoundEffect;
 }

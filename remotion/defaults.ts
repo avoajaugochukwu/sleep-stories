@@ -67,4 +67,9 @@ export const sleepStoryDefaults: SleepVideoInputProps = {
       fadeFrames: Math.round(1.6 * fps),
     },
   ],
+  // Looping fire-crackling bed under the narration; toggled per render in the UI.
+  soundEffect: {
+    src: "sound-effects/soundreality-fire-ambience-528618.mp3",
+    volume: 0.18,
+  },
 };

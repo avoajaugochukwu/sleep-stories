@@ -6,6 +6,8 @@ import { useSessionStore } from "@/lib/store";
 import type { RenderJob } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { NavigationButtons } from "@/components/common/navigation-buttons";
 import {
   AlertTriangle,
@@ -73,6 +75,9 @@ export function RenderPanel() {
 
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  // Looping fire-crackling ambience under the narration. On by default; turn it
+  // off to keep quick test renders light.
+  const [fireAmbience, setFireAmbience] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -165,6 +170,7 @@ export function RenderPanel() {
           scenes: storyboardScenes,
           audioUrl: audio.url,
           audioDurationSec: audio.durationSec,
+          enableSoundEffect: fireAmbience,
         }),
       });
       const data = await res.json();
@@ -229,6 +235,23 @@ export function RenderPanel() {
             }
             icon={Film}
           />
+          <div className="flex items-start gap-3 border-t border-border/60 pt-3">
+            <Checkbox
+              id="fire-ambience"
+              checked={fireAmbience}
+              onCheckedChange={(v) => setFireAmbience(v === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="fire-ambience" className="text-sm font-medium">
+                Fire crackling ambience
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Loops a soft fire bed under the narration. Turn off for quick
+                test renders.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

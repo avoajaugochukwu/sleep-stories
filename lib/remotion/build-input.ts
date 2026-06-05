@@ -2,8 +2,18 @@ import type { StoryboardScene } from "@/lib/types";
 import type {
   SleepOverlay,
   SleepRenderScene,
+  SleepSoundEffect,
   SleepVideoInputProps,
 } from "./types";
+
+// Looping ambient bed mixed under the narration. Lives in public/sound-effects/
+// (bundled into the deployed site, so staticFile() resolves it on Lambda).
+// Volume kept low so it's atmosphere, not foreground. Can be toggled off per
+// render (e.g. for quick test renders).
+export const FIRE_SOUND_EFFECT: SleepSoundEffect = {
+  src: "sound-effects/soundreality-fire-ambience-528618.mp3",
+  volume: 0.18,
+};
 
 // Ambient overlay clips living in public/overlays/ (bundled into the deployed
 // site, so staticFile() resolves them on Lambda). They're smoke/fog/light/fire
@@ -127,11 +137,14 @@ export function buildSleepVideoInput(opts: {
   scenes: StoryboardScene[];
   audioUrl: string;
   audioDurationSec: number;
+  /** Mix the looping fire-crackling bed under the narration. Defaults to on. */
+  enableSoundEffect?: boolean;
 }): SleepVideoInputProps {
-  const { scenes, audioUrl, audioDurationSec } = opts;
+  const { scenes, audioUrl, audioDurationSec, enableSoundEffect = true } = opts;
 
   const fps = RENDER_FPS;
   const totalFrames = Math.max(1, Math.round(audioDurationSec * fps));
+  const soundEffect = enableSoundEffect ? FIRE_SOUND_EFFECT : undefined;
 
   const ordered = [...scenes].sort((a, b) => a.scene_number - b.scene_number);
   if (ordered.length === 0) {
@@ -144,6 +157,7 @@ export function buildSleepVideoInput(opts: {
       scenes: [],
       crossfadeFrames: Math.round(CROSSFADE_SEC * fps),
       overlays: scheduleOverlays(totalFrames, fps),
+      soundEffect,
     };
   }
 
@@ -210,5 +224,6 @@ export function buildSleepVideoInput(opts: {
     scenes: renderScenes,
     crossfadeFrames: Math.round(CROSSFADE_SEC * fps),
     overlays: scheduleOverlays(totalFrames, fps),
+    soundEffect,
   };
 }

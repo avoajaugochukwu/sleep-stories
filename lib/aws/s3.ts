@@ -1,8 +1,11 @@
 import {
   DeleteObjectCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { randomUUID } from "crypto";
 
 export const awsRegion = process.env.AWS_REGION ?? "us-west-2";
 
@@ -82,6 +85,55 @@ export async function listRecentRenders(): Promise<RenderListing[]> {
 
   out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   return out;
+}
+
+// Keep an uploaded filename safe as an S3 key segment: strip anything that
+// isn't a word char/dash/dot, collapse repeats. A short uuid prefix guarantees
+// uniqueness so two uploads of "narration.mp3" never collide.
+function safeKeySegment(name: string): string {
+  const cleaned = name
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  return cleaned || "audio.mp3";
+}
+
+export interface AudioUploadTarget {
+  /** Presigned PUT URL — the browser uploads the file straight here. */
+  uploadUrl: string;
+  /** Public HTTPS URL Lambda fetches at render time (bucket is public-read). */
+  publicUrl: string;
+  /** The S3 key, e.g. "audio/ab12cd34-narration.mp3". */
+  key: string;
+}
+
+/**
+ * Mint a presigned PUT URL so the browser can upload a narration mp3 directly
+ * to our bucket under audio/ (bypassing the Next.js/Railway request-size limit;
+ * CORS for PUT is already configured in deploy-site.mjs). The object lands in
+ * the public bucket, so the returned publicUrl is fetchable by Lambda with no
+ * presigning — and the audio/ lifecycle rule expires it after 7 days.
+ *
+ * Used for quick test renders: drop in a voiceover without first uploading it
+ * to S3 by hand and pasting the URL.
+ */
+export async function presignAudioUpload(
+  filename: string,
+  contentType: string,
+): Promise<AudioUploadTarget> {
+  const bucket = renderBucket();
+  const key = `audio/${randomUUID().slice(0, 8)}-${safeKeySegment(filename)}`;
+  const uploadUrl = await getSignedUrl(
+    s3(),
+    new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
+    { expiresIn: 600 },
+  );
+  return {
+    uploadUrl,
+    publicUrl: `https://${bucket}.s3.${awsRegion}.amazonaws.com/${key}`,
+    key,
+  };
 }
 
 /** Delete a finished render's mp4 (used by the "discard this take" button). */
