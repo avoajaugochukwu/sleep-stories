@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { StoryboardScene } from "@/lib/types";
-import { buildSleepVideoInput } from "@/lib/remotion/build-input";
+import {
+  buildSleepVideoInput,
+  SOUND_EFFECTS,
+  type SoundEffectKey,
+} from "@/lib/remotion/build-input";
 import { planStoryText } from "@/lib/scene-engine/story-text";
 import { startSleepRender } from "@/lib/remotion/lambda";
 
@@ -11,8 +15,8 @@ type Body = {
   scenes?: StoryboardScene[];
   audioUrl?: string;
   audioDurationSec?: number;
-  /** Mix the looping fire-crackling ambience under the narration. Default on. */
-  enableSoundEffect?: boolean;
+  /** Which looping ambient bed to mix under the narration ("fire"/"meditation"/"none"). */
+  soundEffect?: string;
 };
 
 export async function POST(req: Request) {
@@ -23,7 +27,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Body must be JSON" }, { status: 400 });
   }
 
-  const { scenes, audioUrl, audioDurationSec, enableSoundEffect } = body;
+  const { scenes, audioUrl, audioDurationSec, soundEffect } = body;
+
+  // Accept a known bed key or "none"; anything else falls back to the default.
+  const soundEffectKey: SoundEffectKey | "none" =
+    soundEffect === "none" || (!!soundEffect && soundEffect in SOUND_EFFECTS)
+      ? (soundEffect as SoundEffectKey | "none")
+      : "fire";
 
   if (!Array.isArray(scenes) || scenes.length === 0) {
     return NextResponse.json({ error: "No scenes provided" }, { status: 400 });
@@ -48,8 +58,7 @@ export async function POST(req: Request) {
       scenes,
       audioUrl,
       audioDurationSec,
-      // Default on when the client omits it (older callers keep the ambience).
-      enableSoundEffect: enableSoundEffect ?? true,
+      soundEffect: soundEffectKey,
     });
 
     // Derive the title + bottom-left captions from the script (one Claude call).

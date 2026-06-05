@@ -5,6 +5,19 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-04
 
+- **Added a second ambient bed (meditation) + per-bed volume; ambience is now a
+  pick-one choice, not a toggle.** `build-input.ts` replaces `FIRE_SOUND_EFFECT`
+  with a `SOUND_EFFECTS` catalog keyed `fire` (vol 0.18) / `meditation` (vol
+  0.10) — each carries its own volume so the fuller meditation pad sits lower and
+  never overpowers the narration. `buildSleepVideoInput` now takes
+  `soundEffect: "fire" | "meditation" | "none"` (was the `enableSoundEffect`
+  bool); `/api/render/start` validates the key against the catalog; the render
+  panel swaps the checkbox for a radio group (Fire / Meditation / Off, Fire
+  default). New file `public/sound-effects/quietphase-meditation-ambient-484356.mp3`.
+  **Why deploy:site:** the new mp3 must be in the bundled `public/` for
+  `staticFile()` to resolve it on Lambda (server/UI logic itself ships via
+  Railway).
+
 - **Added in-app mp3 narration upload (presigned PUT → S3), for quick test
   renders.** You no longer have to upload a voiceover to S3 by hand and paste the
   URL: the narration step now has an "Upload mp3" button. `lib/aws/s3.ts` gains

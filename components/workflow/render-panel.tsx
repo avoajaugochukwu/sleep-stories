@@ -6,8 +6,11 @@ import { useSessionStore } from "@/lib/store";
 import type { RenderJob } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  SOUND_EFFECTS,
+  type SoundEffectKey,
+} from "@/lib/remotion/build-input";
 import { NavigationButtons } from "@/components/common/navigation-buttons";
 import {
   AlertTriangle,
@@ -75,9 +78,9 @@ export function RenderPanel() {
 
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  // Looping fire-crackling ambience under the narration. On by default; turn it
-  // off to keep quick test renders light.
-  const [fireAmbience, setFireAmbience] = useState(true);
+  // Which looping ambient bed plays under the narration. Fire by default; "none"
+  // keeps quick test renders light.
+  const [ambience, setAmbience] = useState<SoundEffectKey | "none">("fire");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -170,7 +173,7 @@ export function RenderPanel() {
           scenes: storyboardScenes,
           audioUrl: audio.url,
           audioDurationSec: audio.durationSec,
-          enableSoundEffect: fireAmbience,
+          soundEffect: ambience,
         }),
       });
       const data = await res.json();
@@ -235,22 +238,35 @@ export function RenderPanel() {
             }
             icon={Film}
           />
-          <div className="flex items-start gap-3 border-t border-border/60 pt-3">
-            <Checkbox
-              id="fire-ambience"
-              checked={fireAmbience}
-              onCheckedChange={(v) => setFireAmbience(v === true)}
-              className="mt-0.5"
-            />
-            <div className="space-y-0.5">
-              <Label htmlFor="fire-ambience" className="text-sm font-medium">
-                Fire crackling ambience
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Loops a soft fire bed under the narration. Turn off for quick
-                test renders.
-              </p>
-            </div>
+          <div className="space-y-2 border-t border-border/60 pt-3">
+            <p className="text-sm font-medium">Ambient sound</p>
+            <p className="text-xs text-muted-foreground">
+              Loops a soft bed under the narration (kept low so it never
+              overpowers the voice). Pick &ldquo;Off&rdquo; for quick test renders.
+            </p>
+            <RadioGroup
+              value={ambience}
+              onValueChange={(v) => setAmbience(v as SoundEffectKey | "none")}
+              className="pt-1"
+            >
+              {(Object.keys(SOUND_EFFECTS) as SoundEffectKey[]).map((key) => (
+                <label
+                  key={key}
+                  htmlFor={`amb-${key}`}
+                  className="flex cursor-pointer items-center gap-2 text-sm"
+                >
+                  <RadioGroupItem id={`amb-${key}`} value={key} />
+                  {SOUND_EFFECTS[key].label}
+                </label>
+              ))}
+              <label
+                htmlFor="amb-none"
+                className="flex cursor-pointer items-center gap-2 text-sm"
+              >
+                <RadioGroupItem id="amb-none" value="none" />
+                Off
+              </label>
+            </RadioGroup>
           </div>
         </CardContent>
       </Card>

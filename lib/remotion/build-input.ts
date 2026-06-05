@@ -6,14 +6,27 @@ import type {
   SleepVideoInputProps,
 } from "./types";
 
-// Looping ambient bed mixed under the narration. Lives in public/sound-effects/
-// (bundled into the deployed site, so staticFile() resolves it on Lambda).
-// Volume kept low so it's atmosphere, not foreground. Can be toggled off per
-// render (e.g. for quick test renders).
-export const FIRE_SOUND_EFFECT: SleepSoundEffect = {
-  src: "sound-effects/soundreality-fire-ambience-528618.mp3",
-  volume: 0.18,
-};
+// Looping ambient beds, mixed UNDER the narration. Each carries its OWN volume:
+// a fuller track (the meditation pad) sits lower than a sparse one (fire) so it
+// never overpowers the voice. Files live in public/sound-effects/ (bundled into
+// the deployed site, so staticFile() resolves them on Lambda). Pick one per
+// render in the UI — or "none" for a silent test render.
+export const SOUND_EFFECTS = {
+  fire: {
+    label: "Fire crackling",
+    src: "sound-effects/soundreality-fire-ambience-528618.mp3",
+    volume: 0.18,
+  },
+  meditation: {
+    label: "Meditation ambient",
+    src: "sound-effects/quietphase-meditation-ambient-484356.mp3",
+    // A continuous musical pad reads louder than crackle, so keep it well under
+    // the narration.
+    volume: 0.05,
+  },
+} as const satisfies Record<string, SleepSoundEffect & { label: string }>;
+
+export type SoundEffectKey = keyof typeof SOUND_EFFECTS;
 
 // Ambient overlay clips living in public/overlays/ (bundled into the deployed
 // site, so staticFile() resolves them on Lambda). They're smoke/fog/light/fire
@@ -137,14 +150,22 @@ export function buildSleepVideoInput(opts: {
   scenes: StoryboardScene[];
   audioUrl: string;
   audioDurationSec: number;
-  /** Mix the looping fire-crackling bed under the narration. Defaults to on. */
-  enableSoundEffect?: boolean;
+  /** Which looping ambient bed to mix under the narration; "none" for silence. */
+  soundEffect?: SoundEffectKey | "none";
 }): SleepVideoInputProps {
-  const { scenes, audioUrl, audioDurationSec, enableSoundEffect = true } = opts;
+  const {
+    scenes,
+    audioUrl,
+    audioDurationSec,
+    soundEffect: soundKey = "fire",
+  } = opts;
 
   const fps = RENDER_FPS;
   const totalFrames = Math.max(1, Math.round(audioDurationSec * fps));
-  const soundEffect = enableSoundEffect ? FIRE_SOUND_EFFECT : undefined;
+  const sel = soundKey === "none" ? undefined : SOUND_EFFECTS[soundKey];
+  const soundEffect: SleepSoundEffect | undefined = sel
+    ? { src: sel.src, volume: sel.volume }
+    : undefined;
 
   const ordered = [...scenes].sort((a, b) => a.scene_number - b.scene_number);
   if (ordered.length === 0) {
