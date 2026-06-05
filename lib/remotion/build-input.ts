@@ -22,7 +22,7 @@ export const SOUND_EFFECTS = {
     src: "sound-effects/quietphase-meditation-ambient-484356.mp3",
     // A continuous musical pad reads louder than crackle, so keep it well under
     // the narration.
-    volume: 0.05,
+    volume: 0.07,
   },
 } as const satisfies Record<string, SleepSoundEffect & { label: string }>;
 
