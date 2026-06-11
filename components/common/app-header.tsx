@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Moon, RotateCcw } from 'lucide-react';
 import { useSessionStore } from '@/lib/store';
+import { WorkflowIO } from '@/components/common/workflow-io';
 
 const STEPS = [
   { path: '/scenes', label: 'Scenes', step: '01' },
@@ -59,12 +60,14 @@ export function AppHeader() {
               })}
             </nav>
 
+            <WorkflowIO />
+
             <button
               onClick={handleReset}
               className="flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-border"
             >
               <RotateCcw className="h-4 w-4" />
-              Start Over
+              <span className="hidden sm:inline">Start Over</span>
             </button>
           </div>
         )}
