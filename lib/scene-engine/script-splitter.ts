@@ -13,12 +13,11 @@ export interface Chunk {
   sentence_count: number;
 }
 
-// Keep chunks small. A large chunk (e.g. 40 sentences) invites the LLM to
-// over-group the whole thing into 1–2 giant scenes instead of honoring the
-// ~30s (~60–90 word) target, and risks overflowing the response token budget
-// (which silently collapses the chunk to a single fallback scene). ~10
-// sentences ≈ 200 words yields a handful of correctly-sized scenes per chunk.
-export const DEFAULT_SENTENCES_PER_CHUNK = 10;
+// Each chunk is one LLM call that returns several ~30s scenes. 40 sentences
+// (~700 words) yields ~10–14 scenes per call — a good balance of scene count
+// vs. number of API round-trips (smaller chunks multiply the calls and can blow
+// the analyze route's time budget on a slower model).
+export const DEFAULT_SENTENCES_PER_CHUNK = 40;
 
 /**
  * Light normalization: standardize line endings and collapse runaway

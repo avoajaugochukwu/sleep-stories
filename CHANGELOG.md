@@ -5,18 +5,27 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-15
 
-- **Long scripts produced far too few scenes (e.g. ~29 for a ~10k-word script).**
-  Root cause in the no-gap breakdown: `DEFAULT_SENTENCES_PER_CHUNK` was 40, so each
-  LLM call received an ~800-word chunk and — under a prompt that biases toward
-  "long, slow scenes" — over-grouped it into 1–2 giant scenes instead of ~10
-  ~30s ones. Compounding it, `generateForChunk` used `max_tokens: 4096` and on
-  *any* JSON parse failure (including a response truncated at the token limit)
-  silently falls back to the whole chunk as one scene. Fixes: dropped
-  `DEFAULT_SENTENCES_PER_CHUNK` 40 → 10 (`script-splitter.ts`) so chunks are
-  small enough that the model can't over-group; raised `max_tokens` 4096 → 8192
-  for headroom; and added a `stop_reason === 'max_tokens'` warning so future
-  truncation is visible instead of silently collapsing a chunk. No infra/env
-  change; this is server/UI logic (ships via Railway, not the Lambda bundle).
+- **Long scripts collapsed to one scene per chunk (e.g. exactly 29 scenes for a
+  20,194-word / 1,149-sentence script = exactly 29 forty-sentence chunks).** Root
+  cause: `DEFAULT_MODEL` was `claude-sonnet-4-20250514`, which the Anthropic API
+  now returns `404 not_found_error` for (the model ID was retired). Every
+  per-chunk `messages.create` call threw, and `generateForChunk`'s `catch`
+  silently falls back to "whole chunk = one scene" — so chunk count == scene
+  count. It *used* to work because the model existed. The symptom looked like a
+  chunking/over-grouping problem but was not.
+- **Switched scene generation off Anthropic onto OpenAI GPT-4o** (per request).
+  New `lib/ai/openai.ts` (client + `DEFAULT_MODEL = 'gpt-4o'`); `no-gap-breakdown.ts`
+  and `story-text.ts` now call `openai.chat.completions.create` with
+  `response_format: { type: 'json_object' }` (more reliable JSON than fence-stripping)
+  and `max_completion_tokens`. Verified on the real API: a 40-sentence chunk →
+  14 scenes, 14/14 exact-substring anchored. `lib/ai/anthropic.ts` is now unused.
+  Requires `OPENAI_API_KEY` in `.env.local` (already present).
+- Kept `DEFAULT_SENTENCES_PER_CHUNK = 40` (an interim drop to 10 was reverted —
+  the bug was never chunk size, and GPT-4o is slower ~19s/call so 40 keeps the
+  analyze route's ~29 calls well under the 300s budget; 10 would be ~115 calls
+  and risk a timeout). Also added a `finish_reason === 'length'` warning so a
+  truncated chunk is logged instead of silently collapsing. Server/UI logic only
+  (ships via Railway, not the Lambda bundle) — no redeploy needed.
 
 ## 2026-06-04
 

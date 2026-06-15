@@ -2,7 +2,7 @@
 // STORY TEXT — AI-derived title + bottom-left captions
 // ----------------------------------------------------------------------------
 // Replaces the old hand-typed title and the every-6th-scene verbatim line.
-// One Claude pass reads the whole script and returns:
+// One GPT-4o pass reads the whole script and returns:
 //   • a short, evocative TITLE (drives the title card AND the S3 filename), and
 //   • a short calming PHRASE for each pre-selected moment (a handful of scenes
 //     spread 3–5 min apart), rendered bottom-left over the video.
@@ -11,7 +11,7 @@
 // ============================================================================
 
 import { z } from "zod";
-import { anthropic, DEFAULT_MODEL } from "@/lib/ai/anthropic";
+import { openai, DEFAULT_MODEL } from "@/lib/ai/openai";
 import { toGentleLine } from "@/lib/remotion/build-input";
 import type { SleepRenderScene, StoryTextOverlay } from "@/lib/remotion/types";
 
@@ -76,11 +76,11 @@ interface Moment {
 }
 
 /**
- * One Claude call → { title, captions-by-id }. Falls back gracefully (heuristic
+ * One LLM call → { title, captions-by-id }. Falls back gracefully (heuristic
  * title + verbatim first-clause captions) if the API errors or returns garbage,
  * so a render is never blocked on the LLM.
  */
-async function callClaude(
+async function callModel(
   fullScript: string,
   moments: Moment[],
 ): Promise<{ title: string; byId: Map<string, string> }> {
@@ -94,15 +94,17 @@ async function callClaude(
       script: fullScript,
       moments: moments.map((m) => ({ id: m.id, text: m.snippet })),
     });
-    const response = await anthropic.messages.create({
+    const response = await openai.chat.completions.create({
       model: DEFAULT_MODEL,
-      max_tokens: 2048,
+      max_completion_tokens: 2048,
       temperature: 0.6,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
     });
-    const block = response.content.find((b) => b.type === "text");
-    const text = block && block.type === "text" ? block.text : "";
+    const text = response.choices[0]?.message?.content ?? "";
     const parsed = StoryTextSchema.parse(JSON.parse(stripCodeFences(text)));
 
     const title = parsed.title.trim() || heuristicTitle(fullScript);
@@ -139,7 +141,7 @@ export interface StoryTextPlan {
 }
 
 /**
- * End-to-end: select moments, ask Claude for a title + captions, and lay the
+ * End-to-end: select moments, ask the model for a title + captions, and lay the
  * captions out on the timeline. `renderScenes` carry the real startFrames;
  * `storyboard` supplies the verbatim snippet for each scene_number.
  */
@@ -172,7 +174,7 @@ export async function planStoryText(args: {
     snippet: snippetByNumber.get(sceneNumberOf(s.id)) ?? "",
   }));
 
-  const { title, byId } = await callClaude(fullScript, moments);
+  const { title, byId } = await callModel(fullScript, moments);
 
   const lead = Math.round(CAPTION_LEAD_SEC * fps);
   const fadeFrames = Math.round(CAPTION_FADE_SEC * fps);

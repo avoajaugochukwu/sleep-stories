@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { z } from 'zod';
-import { anthropic, DEFAULT_MODEL } from '@/lib/ai/anthropic';
+import { openai, DEFAULT_MODEL } from '@/lib/ai/openai';
 import {
   splitIntoChunks,
   normalizeScript,
@@ -145,22 +145,25 @@ async function generateForChunk(
 
   let raw: unknown;
   try {
-    const response = await anthropic.messages.create({
+    const response = await openai.chat.completions.create({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      max_completion_tokens: 8192,
       temperature: 0.7,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
     });
+    const choice = response.choices[0];
     // A truncated response yields invalid JSON and silently collapses the whole
     // chunk into one fallback scene below — surface it instead of hiding it.
-    if (response.stop_reason === 'max_tokens') {
+    if (choice?.finish_reason === 'length') {
       console.warn(
-        `[no-gap-breakdown] chunk ${chunk.chunk_id} hit max_tokens; scenes for this chunk may collapse. Consider smaller chunks.`
+        `[no-gap-breakdown] chunk ${chunk.chunk_id} hit the token limit; scenes for this chunk may collapse. Consider smaller chunks.`
       );
     }
-    const block = response.content.find((b) => b.type === 'text');
-    const text = block && block.type === 'text' ? block.text : '';
+    const text = choice?.message?.content ?? '';
     raw = JSON.parse(stripCodeFences(text));
   } catch {
     // Fallback: whole chunk becomes a single scene so coverage is never lost.
@@ -234,14 +237,14 @@ export async function breakdownScript(
   // Global context pre-pass (best-effort).
   let globalContext: string | undefined;
   try {
-    const response = await anthropic.messages.create({
+    const response = await openai.chat.completions.create({
       model: DEFAULT_MODEL,
-      max_tokens: 512,
+      max_completion_tokens: 512,
       temperature: 0.3,
+      response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: GLOBAL_CONTEXT_PROMPT(normalized) }],
     });
-    const block = response.content.find((b) => b.type === 'text');
-    const text = block && block.type === 'text' ? block.text : '';
+    const text = response.choices[0]?.message?.content ?? '';
     globalContext = (JSON.parse(stripCodeFences(text)) as { summary?: string }).summary;
   } catch {
     globalContext = undefined;
