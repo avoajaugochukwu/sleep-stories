@@ -5,6 +5,14 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-15
 
+- **"Start Over" didn't fully clear the session — old data came back.** The
+  Zustand store persists to IndexedDB (`idb-keyval`, key `sleep-stories-session`),
+  but `reset()` only did `set({ ...initialState })`, clearing in-memory state
+  while leaving the persisted entry intact — so the old session rehydrated on the
+  next load (and could win the race against an in-flight hydration right after a
+  reset). Fix: `reset()` now also `idbDel`s the persisted entry, and the storage
+  key is a shared `STORAGE_KEY` constant so the persist config and reset can't
+  drift. Server/UI logic only — no redeploy.
 - **Long scripts collapsed to one scene per chunk (e.g. exactly 29 scenes for a
   20,194-word / 1,149-sentence script = exactly 29 forty-sentence chunks).** Root
   cause: `DEFAULT_MODEL` was `claude-sonnet-4-20250514`, which the Anthropic API

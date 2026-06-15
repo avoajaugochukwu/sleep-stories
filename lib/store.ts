@@ -3,6 +3,10 @@ import { persist, type PersistStorage, type StorageValue } from 'zustand/middlew
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { SessionStore, WorkflowStep } from './types';
 
+// IndexedDB key for the persisted session. Used both by the persist middleware
+// and by reset(), so it must stay a single source of truth.
+const STORAGE_KEY = 'sleep-stories-session';
+
 const initialState = {
   currentStep: 1 as WorkflowStep,
   script: null,
@@ -90,10 +94,17 @@ export const useSessionStore = create<SessionStore>()(
 
       clearErrors: () => set({ errors: [] }),
 
-      reset: () => set({ ...initialState }),
+      reset: () => {
+        // Clear in-memory state AND delete the persisted IndexedDB entry.
+        // Without the explicit delete, the old session rehydrates on the next
+        // load (or wins the race against an in-flight hydration), so "Start
+        // Over" appears to do nothing — the session comes back.
+        set({ ...initialState });
+        void idbDel(STORAGE_KEY);
+      },
     }),
     {
-      name: 'sleep-stories-session',
+      name: STORAGE_KEY,
       version: 1,
       storage: idbStorage,
       partialize: (state): PersistedState => ({
