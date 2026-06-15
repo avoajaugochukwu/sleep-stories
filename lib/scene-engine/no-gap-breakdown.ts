@@ -147,11 +147,18 @@ async function generateForChunk(
   try {
     const response = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.7,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
+    // A truncated response yields invalid JSON and silently collapses the whole
+    // chunk into one fallback scene below — surface it instead of hiding it.
+    if (response.stop_reason === 'max_tokens') {
+      console.warn(
+        `[no-gap-breakdown] chunk ${chunk.chunk_id} hit max_tokens; scenes for this chunk may collapse. Consider smaller chunks.`
+      );
+    }
     const block = response.content.find((b) => b.type === 'text');
     const text = block && block.type === 'text' ? block.text : '';
     raw = JSON.parse(stripCodeFences(text));

@@ -3,6 +3,21 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-15
+
+- **Long scripts produced far too few scenes (e.g. ~29 for a ~10k-word script).**
+  Root cause in the no-gap breakdown: `DEFAULT_SENTENCES_PER_CHUNK` was 40, so each
+  LLM call received an ~800-word chunk and — under a prompt that biases toward
+  "long, slow scenes" — over-grouped it into 1–2 giant scenes instead of ~10
+  ~30s ones. Compounding it, `generateForChunk` used `max_tokens: 4096` and on
+  *any* JSON parse failure (including a response truncated at the token limit)
+  silently falls back to the whole chunk as one scene. Fixes: dropped
+  `DEFAULT_SENTENCES_PER_CHUNK` 40 → 10 (`script-splitter.ts`) so chunks are
+  small enough that the model can't over-group; raised `max_tokens` 4096 → 8192
+  for headroom; and added a `stop_reason === 'max_tokens'` warning so future
+  truncation is visible instead of silently collapsing a chunk. No infra/env
+  change; this is server/UI logic (ships via Railway, not the Lambda bundle).
+
 ## 2026-06-04
 
 - **Added a second ambient bed (meditation) + per-bed volume; ambience is now a
