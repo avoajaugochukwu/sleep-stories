@@ -5,6 +5,15 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-15
 
+- **Script editor on the scenes page is now always visible (no "Change script"
+  step).** It was gated by a local `isScriptSet` toggle: once a script existed
+  the editor was hidden behind the scene breakdown, and you had to click "Change
+  script" to get it back — awkward when adding audio first or editing. Now the
+  audio card and script editor always render (add them in any order), the
+  breakdown shows below once a script is set, and submitting a *changed* script
+  clears the old scenes/images and re-runs (keyed on `generated_at`); an
+  unchanged submit is a no-op (button disabled). The editor seeds once from the
+  store after hydration. `app/scenes/page.tsx` only.
 - **"Start Over" didn't fully clear the session — old data came back.** The
   Zustand store persists to IndexedDB (`idb-keyval`, key `sleep-stories-session`),
   but `reset()` only did `set({ ...initialState })`, clearing in-memory state
