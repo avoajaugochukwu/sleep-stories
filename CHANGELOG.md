@@ -3,6 +3,43 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-24
+
+- **Image aesthetic changed from "muted dark" to "dark with a touch of neon".**
+  Mostly-dark, low-key frame with ONE or TWO small restrained neon accents in a
+  SINGLE color per scene, the color *varied scene-to-scene* (green, orange,
+  amber, teal, cyan, pink, blue, violet) and tied to a named in-scene glow
+  source (lantern, fireflies, clock, neon sign). The persona layer
+  (`lib/scene-engine/sleep-scene-prompt.ts`) picks the single color; the suffix
+  (`lib/prompts/all-prompts.ts`) only enforces restraint + "no confetti / no
+  disco / no extra colors". Iteration notes (so we don't relearn): a single
+  blue/purple "burst" was too monochrome; listing *all* neon colors in the
+  per-image suffix made the model cram every hue into one frame → multicolor
+  confetti; the fix was one-color-per-scene from the persona + a color-free
+  suffix. Note `NEGATIVE_PROMPT_SLEEP` confetti blocks are inert on Z-Image
+  (empty-negative CFG ignores negatives) — steering is positive-prompt only.
+
+- **Z-Image quality fix: shortened `IMAGE_GENERATION_SUFFIX` from a ~1100-char
+  comma-tag/negation soup to one natural-language sentence.** Symptom: Z-Image
+  renders looked muddy/washed-out and "not comparable to online" — suspected a
+  LoRA. There is NO LoRA on the Z-Image backend (`app/backends/zimage.py` runs
+  raw `ZImagePipeline`; the only LoRA is on the inactive Qwen fallback). A
+  same-seed A/B proved the cause: a clean short prompt produced sharp, well-lit
+  results; the same subject + the long suffix produced a muddy frame and even
+  rendered the words "no confetti" as a literal green dot. Z-Image is a
+  natural-language follower — Midjourney-style tag stacks ("atmospheric haze,
+  soft focus background, mostly dark frame, 8k") and "no X" negations degrade
+  it. Settings were fine (Base wants guidance 3–5 / 28–50 steps; we run 5.0/30).
+  Side effect: dropping the "no borders" negation occasionally lets a thin matte
+  border appear — acceptable, croppable.
+  `NEGATIVE_PROMPT_SLEEP` dropped `oversaturated` and `garish neon` (they
+  suppressed the new look) and added `blown-out highlights`. The scene persona
+  layer (`lib/scene-engine/sleep-scene-prompt.ts`) color rule now asks each
+  `visual_context` for ONE *motivated* neon glow source (neon sign, glowing
+  window, bioluminescence, aurora) so the color reads as part of the scene, not
+  pasted on. Runtime-only strings (analyze + scene-image API routes) — no
+  Lambda/site redeploy needed.
+
 ## 2026-06-15
 
 - **Script editor on the scenes page is now always visible (no "Change script"

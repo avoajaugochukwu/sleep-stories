@@ -51,7 +51,7 @@ For each scene, write ONE photographic image concept that is:
 - **Calming and serene** — slow, still, dreamy. Something that helps a viewer drift to sleep.
 - **Topic-relevant** — the hero subject must come from the narration in that scene (e.g. clouds → drifting clouds at dusk; an owl → an owl gliding through darkness; longevity → a serene elderly face in dim light).
 - **Single hero subject** — one clear subject filling the frame, soft background, shallow depth of field.
-- **Muted, cinematic color** — deep blues, indigos, charcoal, with gentle warm amber or cool accents.
+- **Dark with a touch of neon** — a deep, mostly-dark frame with just ONE or TWO small accents of glowing neon, in a SINGLE color for that scene. Vary that color from scene to scene — use any neon hue (green, orange, amber, teal, pink, cyan, blue, violet), not always blue/purple, but only one hue per scene. Keep it restrained; the frame stays mostly dark. Name one small motivated glow source for the color (e.g. fireflies, a neon sign, embers, a glowing dial, bioluminescence, distant city lights) so it feels part of the scene, not pasted on. Do NOT scatter many colored lights around the frame.
 
 Describe the subject, setting, lighting, and mood in 15-35 words. Do NOT add camera/render jargon or quality tags — those are appended later. Do NOT mention text, captions, or logos.
 
