@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/lib/store';
 import { SceneBreakdown } from '@/components/workflow/scene-breakdown';
+import { JobHydrator } from '@/components/workflow/job-hydrator';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowRight, FileText, Sparkles, Film, CheckCircle2 } from 'lucide-react';
@@ -55,6 +56,11 @@ export default function ScenesPage() {
   return (
     <div className="mx-auto max-w-5xl px-5 py-12 sm:py-16">
       <div className="stagger space-y-8">
+        {/* Prebaked-job banner — only renders when opened as ?job=<taskId>. */}
+        <Suspense fallback={null}>
+          <JobHydrator />
+        </Suspense>
+
         {/* Header */}
         <div className="text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/40 px-3.5 py-1.5 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">

@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import type { StoryboardScene } from "@/lib/types";
-import {
-  buildSleepVideoInput,
-  SOUND_EFFECTS,
-  type SoundEffectKey,
-} from "@/lib/remotion/build-input";
-import { planStoryText } from "@/lib/scene-engine/story-text";
-import { startSleepRender } from "@/lib/remotion/lambda";
+import { startRenderForScenes } from "@/lib/remotion/start-render";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,12 +23,6 @@ export async function POST(req: Request) {
 
   const { scenes, audioUrl, audioDurationSec, soundEffect } = body;
 
-  // Accept a known bed key or "none"; anything else falls back to the default.
-  const soundEffectKey: SoundEffectKey | "none" =
-    soundEffect === "none" || (!!soundEffect && soundEffect in SOUND_EFFECTS)
-      ? (soundEffect as SoundEffectKey | "none")
-      : "fire";
-
   if (!Array.isArray(scenes) || scenes.length === 0) {
     return NextResponse.json({ error: "No scenes provided" }, { status: 400 });
   }
@@ -52,35 +40,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    // The user-provided URL points straight at their S3 object — hand it to the
-    // Lambda as-is. No upload, no presign: just the link.
-    const input = buildSleepVideoInput({
+    const result = await startRenderForScenes({
       scenes,
       audioUrl,
       audioDurationSec,
-      soundEffect: soundEffectKey,
+      soundEffect,
     });
-
-    // Derive the title + bottom-left captions from the script (one Claude call).
-    // The title drives both the title card and the S3 output filename.
-    const { title, textOverlays } = await planStoryText({
-      renderScenes: input.scenes,
-      storyboard: scenes,
-      fps: input.fps,
-      totalFrames: input.durationInFrames,
-    });
-    input.title = title;
-    input.textOverlays = textOverlays;
-
-    const { renderId, bucketName } = await startSleepRender(input);
-
-    return NextResponse.json({
-      renderId,
-      bucketName,
-      title,
-      durationInFrames: input.durationInFrames,
-      sceneCount: input.scenes.length,
-    });
+    return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

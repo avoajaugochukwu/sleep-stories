@@ -5,6 +5,46 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Added a full Baserow/ClickUp ingest pipeline + jobs dashboard, mirroring
+  footage-collector end-to-end.** A single n8n/Baserow automation can now fan
+  out to both apps with the same contract.
+  - **Ingest:** `POST /api/jobs/ingest` (header `x-ingest-secret`, body
+    `{ taskId, listId?, script, audioUrl, name?, baserowRowId? }`, response
+    `{ ok, taskId, created, status, url }`). Idempotent. `audioUrl` is required
+    here (the render needs it; FC left it optional).
+  - **Worker** (`lib/jobs/worker.ts`, in-process, long-lived server only): runs
+    the whole pipeline headless — `breakdownScript` → image pool (cap
+    `MAX_GENERATED_IMAGES`, overflow reuse) → audio duration → Lambda render →
+    stores the finished `WorkflowExport` as `project_json`. Flips ClickUp status
+    (in-progress → done) and flags the Baserow row `video_processed`. Supports
+    cooperative cancel. All ClickUp/Baserow writebacks are best-effort (caught),
+    so a missing status label or wrong row never blocks the render.
+  - **Store:** new Turso table `sleep_jobs` in the shared FC database (FC uses
+    `footage_jobs` — no collision). FC-parity columns: clickup status tracking,
+    `hidden`, 7-day retention after ClickUp marks done.
+  - **Dashboard:** `/jobs` page + `JobsPanel` (queued/running/ready/failed/
+    cancelled, grouped by channel, retry/cancel/open, 5s poll), a header **Jobs**
+    link with a "ready" count badge, and `GET /api/jobs` (re-checks ClickUp,
+    hides complete/deleted tasks). Per-job control via `POST /api/jobs/[taskId]`
+    `{ action: retry|cancel|delete }`.
+  - **UI hydration:** open `/scenes?job=<taskId>` and `JobHydrator` polls +
+    loads the prebaked `WorkflowExport` via the existing import path — images and
+    audio persist for re-render and thumbnail picking.
+  - **Boards:** `lib/jobs/config.ts` maps ClickUp list `901113872792`
+    ("Sleep Stories") → label. Status labels default to `"in progress"`/
+    `"fc done"`/`"complete"`, overridable via `CLICKUP_STATUS_*` env.
+  - **New deps:** `@libsql/client` (Turso, same as FC), `music-metadata` (read
+    audio duration server-side — the browser uses an `<audio>` element the
+    worker has no access to).
+  - **New env (copied from FC's `.env.local`):** `TURSO_DATABASE_URL`,
+    `TURSO_AUTH_TOKEN`, `INGEST_SECRET`, `CLICKUP_API`, `BASE_ROW_URL`,
+    `BASEROW_EMAIL`, `BASEROW_PASSWORD`, `BASEROW_TABLE_ID`, plus `RAILWAY_*`.
+  - **Refactor (no behaviour change):** factored shared cores into
+    `lib/remotion/start-render.ts` and `lib/jobs/scene-image.ts`; the render-start
+    and scene-image routes now call them. `clickup.ts`/`baserow.ts` copied
+    verbatim from FC.
+  - *The worker needs a long-lived server (Railway); it won't drain on serverless.*
+
 - **Image aesthetic changed from "muted dark" to "dark with a touch of neon".**
   Mostly-dark, low-key frame with ONE or TWO small restrained neon accents in a
   SINGLE color per scene, the color *varied scene-to-scene* (green, orange,

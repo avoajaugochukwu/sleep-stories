@@ -3,9 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Moon, RotateCcw } from 'lucide-react';
+import { Moon, RotateCcw, ListChecks } from 'lucide-react';
 import { useSessionStore } from '@/lib/store';
 import { WorkflowIO } from '@/components/common/workflow-io';
+import { ReadyTasksBadge } from '@/components/jobs/ready-tasks-badge';
 
 const STEPS = [
   { path: '/scenes', label: 'Scenes', step: '01' },
@@ -59,6 +60,19 @@ export function AppHeader() {
                 );
               })}
             </nav>
+
+            <Link
+              href="/jobs"
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${
+                pathname === '/jobs'
+                  ? 'border-border bg-primary/15 text-foreground'
+                  : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              <ListChecks className="h-4 w-4" />
+              <span className="hidden sm:inline">Jobs</span>
+              <ReadyTasksBadge />
+            </Link>
 
             <WorkflowIO />
 
