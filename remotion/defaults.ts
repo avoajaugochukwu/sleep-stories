@@ -28,8 +28,8 @@ export const sleepStoryDefaults: SleepVideoInputProps = {
   audioUrl:
     "https://remotion-assets.s3.eu-central-1.amazonaws.com/example-audio.mp3",
   fps,
-  width: 3840,
-  height: 2160,
+  width: 1920,
+  height: 1080,
   durationInFrames: cursor,
   title: "A Quiet Night",
   scenes,

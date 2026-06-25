@@ -46,7 +46,7 @@ export async function generateSceneImage(
       prompt: styledPrompt.slice(0, 2000),
       aspect_ratio: "16:9",
       quality: "fast",
-      scale: 4, // 4K upscale (render target is 3840×2160)
+      scale: 1, // 1344×768 source for the 1920×1080 render (was 4 for the 4K trial)
       negative_prompt: NEGATIVE_PROMPT,
     }),
   });

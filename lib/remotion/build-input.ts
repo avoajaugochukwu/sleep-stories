@@ -107,16 +107,17 @@ export function scheduleOverlays(totalFrames: number, fps: number): SleepOverlay
   return schedule;
 }
 
-// Render geometry. 12fps is the deliberate floor for 4K: a 4K frame renders ~4×
-// slower than 1080p, so at 24fps a full ~2h story's 905-frames-per-chunk blew
-// past Lambda's 900s HARD timeout (every chunk hit `Status: timeout`). Halving
-// to 12fps halves the per-chunk frame count → each chunk finishes in ~450-650s,
-// back under 900s. The visuals are slow Ken Burns + long crossfades, so 12fps is
-// near-imperceptible. Tied to RENDER_WIDTH/HEIGHT below: raise fps only if you
-// also drop resolution (1440p tolerates ~18-24fps; 4K needs ≤12-15).
-export const RENDER_FPS = 12;
-export const RENDER_WIDTH = 3840;
-export const RENDER_HEIGHT = 2160;
+// Render geometry. 1080p @ 24fps is the known-good combo. We tried 4K (3840×2160)
+// but a full ~2h story can't get through Lambda: at 24fps every chunk hit the
+// 900s HARD timeout, and dropping to 12fps to fix that just moved the wall to the
+// single-Lambda final concat, which ran the 8 GB /tmp dry (`No space left on
+// device`). Both ceilings (200-chunk cap, 900s, 10 GB mem, 8 GB disk that can't
+// grow without colliding with prod's function name) are pinned. So 4K full-length
+// needs an off-Lambda render — see CHANGELOG 2026-06-25. 24fps: visuals are
+// deliberately slow, so the drop from 30 is invisible but cuts compute ~20%.
+export const RENDER_FPS = 24;
+export const RENDER_WIDTH = 1920;
+export const RENDER_HEIGHT = 1080;
 
 // Soft blend between scenes (no hard cut, no slide).
 const CROSSFADE_SEC = 1.2;

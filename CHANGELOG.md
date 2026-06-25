@@ -3,6 +3,28 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-25
+
+- **Reverted the 4K trial — back to 1080p @ 24fps. 4K full-length is NOT viable
+  on our Lambda topology; don't retry it without going off-Lambda.** The arc (so
+  we never relearn it): bumped render to 4K (3840×2160) → every chunk hit the
+  **900s HARD timeout** (4K frames render ~4× slower; 905 frames/chunk × ~4× >
+  900s; can't add chunks — Remotion's `MAX_FUNCTIONS_PER_RENDER = 200` is a hard
+  constant, and 900s is the AWS max). Dropped to **12fps** to halve frames/chunk
+  → cleared the timeout, but the run then died at the **single-Lambda final
+  concat** with `No space left on device` (ffmpeg exit 228): that step holds all
+  200 chunks PLUS the `-c:v copy` output in 8 GB `/tmp` at once (~2× total size),
+  and 4K at CRF 26 ≈ ~8 Mbps → ~8 GB → ~16 GB peak. **Can't grow the disk** —
+  10240 MB (the max) renames the function to `…disk10240mb…`, colliding with
+  prod's name. CRF 32 would shrink it enough, but at that point we're degrading
+  quality to force a fight we keep losing, so we reverted instead. **Conclusion:**
+  the only real path to 4K full-length is an off-Lambda long-running render (no
+  900s cap, no 8 GB concat box) — a build, deferred. Reverted to known-good:
+  `RENDER_WIDTH/HEIGHT` 1920×1080, `RENDER_FPS` 24 (`lib/remotion/build-input.ts`
+  + `remotion/defaults.ts`), `crf` 26 (`lib/remotion/lambda.ts`), image gen
+  `scale` 1 (`lib/jobs/scene-image.ts`). `Stars.tsx`'s `width/1920` scale is kept
+  (it's a no-op 1.0 at 1080p, and correct if 4K is ever revisited).
+
 ## 2026-06-24
 
 - **Changed: `RENDER_FPS` 24 → 12 to make 4K fit Lambda's 900s timeout.** After
