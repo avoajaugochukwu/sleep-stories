@@ -5,6 +5,13 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Fixed: worker image-gen timeouts (170/376 failed on one run).** The worker
+  fired `Promise.all` over every scene at once, so ~376 simultaneous requests
+  backed up Modal's container queue — tail images waited past the 5-min poll
+  deadline and timed out. Now a bounded pool of `IMAGE_GEN_CONCURRENCY` (default
+  10) workers drains the scene list; in-flight requests never exceed Modal's
+  capacity. `lib/jobs/worker.ts`. Tune via `IMAGE_GEN_CONCURRENCY` env.
+
 - **Changed: image generation now requests `scale: 4` (4K upscale).** The Modal
   image API added a `scale` param (enum `1|4`, default `1`); `scale: 4` returns
   5376×3072 instead of 1344×768, matching the 4K (3840×2160) render target.

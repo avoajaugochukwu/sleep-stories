@@ -68,9 +68,13 @@ async function processJob(job: SleepJob): Promise<void> {
 
     if (await stopIfCancelled("after breakdown")) return;
 
-    // 2. Generate a unique image for every scene, in parallel — the self-hosted
-    //    image API is cheap, so no pool cap and no overflow reuse. Per-image
-    //    failures are tolerated (the render carries the last image forward).
+    // 2. Generate a unique image for every scene. Bounded concurrency: firing all
+    //    N scenes at once backs up Modal's queue so the tail waits past the 5-min
+    //    poll deadline and times out (saw 170/376 fail that way). Cap in-flight
+    //    requests to Modal's container capacity instead. Per-image failures are
+    //    tolerated (the render carries the last image forward).
+    // ponytail: fixed pool of CONCURRENCY workers; tune IMAGE_GEN_CONCURRENCY to Modal's max_containers.
+    const CONCURRENCY = Number(process.env.IMAGE_GEN_CONCURRENCY) || 10;
     await updateJob(taskId, { total, completed: 0, failed: 0, progress: `Generating images 0/${total}…` });
 
     const storyboard: StoryboardScene[] = scenes.map((s) => ({
@@ -78,11 +82,14 @@ async function processJob(job: SleepJob): Promise<void> {
       generation_status: "pending",
     }));
     let done = 0;
+    let nextIndex = 0;
 
-    await Promise.all(
-      scenes.map(async (scene, index) => {
+    const runWorker = async (): Promise<void> => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= scenes.length) return;
         try {
-          const { image_url, prompt_used } = await generateSceneImage(scene);
+          const { image_url, prompt_used } = await generateSceneImage(scenes[index]);
           storyboard[index] = {
             ...storyboard[index],
             image_url,
@@ -106,7 +113,11 @@ async function processJob(job: SleepJob): Promise<void> {
             progress: `Generating images ${done}/${total}…`,
           });
         }
-      }),
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, scenes.length) }, runWorker),
     );
 
     if (await stopIfCancelled("after images")) return;
