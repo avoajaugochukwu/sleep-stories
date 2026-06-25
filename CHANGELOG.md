@@ -5,6 +5,15 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Fixed: ingest jobs failed at the audio step with "Audio duration could not
+  be determined".** Our TTS output (audio-generation-service S3 `out.mp3`) is
+  CBR MP3, codec "MPEG 2 Layer 3" @ 64 kbps, with **no Xing/Info duration
+  header**, so `music-metadata`'s `format.duration` came back `undefined` and the
+  job failed *after* generating all images (wasted spend). Fix: pass
+  `{ duration: true }` to `parseWebStream` (forces a frame scan; streams frame by
+  frame, no full-file buffering) in `lib/jobs/audio-duration.ts`, plus a
+  bitrate×size fallback. Verified against the real file → 8085.79s (~2h15m).
+
 - **Added a full Baserow/ClickUp ingest pipeline + jobs dashboard, mirroring
   footage-collector end-to-end.** A single n8n/Baserow automation can now fan
   out to both apps with the same contract.
