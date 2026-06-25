@@ -5,6 +5,16 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Changed: image generation now uses the self-hosted Modal image API
+  (`avoajaugochukwu--open-source-image-gen-web.modal.run`, Z-Image) instead of
+  fal/Grok Imagine.** `lib/jobs/scene-image.ts` rewritten to the async
+  submit→poll contract: `POST /generate` (Bearer `IMAGE_API_TOKEN`) returns a
+  `job_id`, then `GET /status/{job_id}` polls until `completed`. Avoidances moved
+  from prompt text into a real `negative_prompt`; quality `fast`, aspect `16:9`.
+  Why: own the model + cost (scale-to-zero), no third-party per-call billing.
+  New env: `IMAGE_API_TOKEN` (replaces `FAL_API_KEY`). Note cold starts ~40s
+  (5-min poll timeout). `@fal-ai/client` is now unused.
+
 - **Fixed: ingest jobs failed at the audio step with "Audio duration could not
   be determined".** Our TTS output (audio-generation-service S3 `out.mp3`) is
   CBR MP3, codec "MPEG 2 Layer 3" @ 64 kbps, with **no Xing/Info duration

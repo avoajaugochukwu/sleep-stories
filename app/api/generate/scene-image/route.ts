@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       image_url,
       prompt_used,
       aspect_ratio: '16:9',
-      model: 'xai/grok-imagine-image',
+      model: 'z-image',
       style: 'sleep-dark-cinematic',
     });
   } catch (error) {
