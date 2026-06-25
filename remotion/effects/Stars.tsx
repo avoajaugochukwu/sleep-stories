@@ -21,7 +21,10 @@ const STAR_COUNT = 110;
  */
 export const Stars: React.FC = () => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, width } = useVideoConfig();
+  // Star sizes are in px; scale them to the canvas so a 4K render keeps the same
+  // apparent star size/density as the original 1080p tuning (2.0 at 3840 wide).
+  const scale = width / 1920;
 
   const stars = useMemo<Star[]>(() => {
     return Array.from({ length: STAR_COUNT }, () => ({
@@ -49,12 +52,12 @@ export const Stars: React.FC = () => {
               position: "absolute",
               left: `${s.x}%`,
               top: `${(s.y + driftY) % 100}%`,
-              width: s.size,
-              height: s.size,
+              width: s.size * scale,
+              height: s.size * scale,
               borderRadius: "50%",
               background: "rgba(226, 232, 255, 1)",
               opacity: s.baseOpacity * twinkle,
-              boxShadow: `0 0 ${s.size * 2}px rgba(190, 210, 255, 0.7)`,
+              boxShadow: `0 0 ${s.size * 2 * scale}px rgba(190, 210, 255, 0.7)`,
             }}
           />
         );
