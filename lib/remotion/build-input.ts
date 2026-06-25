@@ -107,11 +107,14 @@ export function scheduleOverlays(totalFrames: number, fps: number): SleepOverlay
   return schedule;
 }
 
-// Render geometry. 30fps is plenty for slow sleep visuals and keeps the frame
-// count (and Lambda cost) reasonable for long narrations. 24fps (cinematic) —
-// the visuals are deliberately slow, so the drop from 30 is invisible but cuts
-// frame count (and therefore Lambda compute) by ~20%.
-export const RENDER_FPS = 24;
+// Render geometry. 12fps is the deliberate floor for 4K: a 4K frame renders ~4×
+// slower than 1080p, so at 24fps a full ~2h story's 905-frames-per-chunk blew
+// past Lambda's 900s HARD timeout (every chunk hit `Status: timeout`). Halving
+// to 12fps halves the per-chunk frame count → each chunk finishes in ~450-650s,
+// back under 900s. The visuals are slow Ken Burns + long crossfades, so 12fps is
+// near-imperceptible. Tied to RENDER_WIDTH/HEIGHT below: raise fps only if you
+// also drop resolution (1440p tolerates ~18-24fps; 4K needs ≤12-15).
+export const RENDER_FPS = 12;
 export const RENDER_WIDTH = 3840;
 export const RENDER_HEIGHT = 2160;
 

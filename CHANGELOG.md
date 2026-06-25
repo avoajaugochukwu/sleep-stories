@@ -5,6 +5,20 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Changed: `RENDER_FPS` 24 → 12 to make 4K fit Lambda's 900s timeout.** After
+  the 1080p→4K bump, full ~2h renders (~180k frames @ 24fps → 971 frames/chunk
+  across ~186 chunks) hit Lambda's **900s HARD timeout on every chunk**
+  (`Status: timeout`, max mem only ~7.4/10 GB — so it was *time*, not memory). A
+  4K frame renders ~4× slower than 1080p, and both ceilings are pinned: Remotion
+  caps fan-out at `MAX_FUNCTIONS_PER_RENDER = 200` and 900s is the AWS max, so we
+  can't add chunks or time. Halving fps halves frames/chunk (~452) → ~450-650s,
+  back under 900s. Slow Ken Burns + long crossfades make 12fps near-imperceptible.
+  `RENDER_FPS` in `lib/remotion/build-input.ts`. **Watch:** the single-Lambda
+  final concat holds all chunks+output+audio in 8 GB `/tmp`; 4K bitrate is higher
+  than CRF 26 was tuned for at 1080p — if concat ENOSPCs/timeouts, raise `crf` or
+  the function disk past 8 GB. (Live function is actually `…disk8192mb…`, not the
+  `disk2048mb` this doc claimed elsewhere.)
+
 - **Fixed: worker image-gen timeouts (170/376 failed on one run).** The worker
   fired `Promise.all` over every scene at once, so ~376 simultaneous requests
   backed up Modal's container queue — tail images waited past the 5-min poll
