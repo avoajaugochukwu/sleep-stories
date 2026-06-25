@@ -1,8 +1,8 @@
 // In-process background worker for the Baserow/ClickUp → sleep-stories pipeline.
 //
 // Runs inside the long-lived Next server. Processes one job at a time, mirroring
-// what the browser UI does by hand: breakdown script -> generate image pool
-// (cap + overflow reuse) -> read audio duration -> kick the Lambda render ->
+// what the browser UI does by hand: breakdown script -> generate one image per
+// scene -> read audio duration -> kick the Lambda render ->
 // store the finished WorkflowExport. Flips ClickUp status as it goes and flags
 // the Baserow row when done. Survives restarts by re-queuing interrupted jobs on
 // first touch (ensureResumed) — there is no external queue.
@@ -11,7 +11,6 @@ import { breakdownScript } from "@/lib/scene-engine/no-gap-breakdown";
 import { generateSceneImage } from "./scene-image";
 import { getAudioDurationSec } from "./audio-duration";
 import { startRenderForScenes } from "@/lib/remotion/start-render";
-import { MAX_GENERATED_IMAGES } from "@/lib/constants";
 import { WORKFLOW_FILE_VERSION, type WorkflowExport } from "@/lib/utils/workflow-io";
 import type { Scene, StoryboardScene, RenderJob } from "@/lib/types";
 import { setClickupStatus } from "./clickup";
@@ -69,24 +68,21 @@ async function processJob(job: SleepJob): Promise<void> {
 
     if (await stopIfCancelled("after breakdown")) return;
 
-    // 2. Generate a unique image per scene up to the pool cap, in parallel —
-    //    the same two-phase strategy as the storyboard generator. Per-image
+    // 2. Generate a unique image for every scene, in parallel — the self-hosted
+    //    image API is cheap, so no pool cap and no overflow reuse. Per-image
     //    failures are tolerated (the render carries the last image forward).
-    const poolSize = Math.min(total, MAX_GENERATED_IMAGES);
-    await updateJob(taskId, { total, completed: 0, failed: 0, progress: `Generating images 0/${poolSize}…` });
+    await updateJob(taskId, { total, completed: 0, failed: 0, progress: `Generating images 0/${total}…` });
 
     const storyboard: StoryboardScene[] = scenes.map((s) => ({
       ...s,
       generation_status: "pending",
     }));
-    const pool: (string | undefined)[] = new Array(poolSize);
     let done = 0;
 
     await Promise.all(
-      scenes.slice(0, poolSize).map(async (scene, index) => {
+      scenes.map(async (scene, index) => {
         try {
           const { image_url, prompt_used } = await generateSceneImage(scene);
-          pool[index] = image_url;
           storyboard[index] = {
             ...storyboard[index],
             image_url,
@@ -107,31 +103,11 @@ async function processJob(job: SleepJob): Promise<void> {
           void updateJob(taskId, {
             completed: filled,
             failed: done - filled,
-            progress: `Generating images ${done}/${poolSize}…`,
+            progress: `Generating images ${done}/${total}…`,
           });
         }
       }),
     );
-
-    // Overflow scenes (videos longer than the pool) reuse pooled images,
-    // distributed from a shuffled pool — exactly like the UI.
-    if (total > poolSize) {
-      const shuffled = Array.from({ length: poolSize }, (_, i) => i).sort(
-        () => Math.random() - 0.5,
-      );
-      for (let i = poolSize; i < total; i++) {
-        const poolIndex = shuffled[i % poolSize];
-        const imageUrl = pool[poolIndex];
-        if (imageUrl) {
-          storyboard[i] = {
-            ...storyboard[i],
-            image_url: imageUrl,
-            generation_status: "completed",
-            image_pool_index: poolIndex,
-          };
-        }
-      }
-    }
 
     if (await stopIfCancelled("after images")) return;
 

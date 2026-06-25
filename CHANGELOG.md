@@ -5,6 +5,14 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Changed: every scene now gets its own unique image — no more pool cap or
+  repeating.** The old 100-image pool with shuffled overflow reuse existed to
+  cap per-call cost; the self-hosted Modal image API is cheap enough that this no
+  longer matters. Removed `MAX_GENERATED_IMAGES`, the worker's `Math.min(...)`
+  cap + overflow block (`lib/jobs/worker.ts`), and the UI's Phase-2 reuse +
+  cost-saving banner (`storyboard-generator.tsx`). `image_pool_index` is kept as
+  a plain per-scene label.
+
 - **Changed: image generation now uses the self-hosted Modal image API
   (`avoajaugochukwu--open-source-image-gen-web.modal.run`, Z-Image) instead of
   fal/Grok Imagine.** `lib/jobs/scene-image.ts` rewritten to the async

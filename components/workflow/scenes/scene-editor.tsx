@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/common/loading-spinner';
-import { MAX_GENERATED_IMAGES } from '@/lib/constants';
 import { 
   RefreshCw, 
   ChevronLeft, 
@@ -120,11 +119,11 @@ export function SceneEditor({ scene, isOpen, onClose, onNavigate }: SceneEditorP
             <div className="flex items-center gap-2">
               <span>Scene {scene.scene_number}</span>
               <Badge variant="outline" className="text-xs">
-                Grok Imagine
+                Z-Image
               </Badge>
               {scene.image_pool_index !== undefined && (
                 <Badge variant="secondary" className="text-xs">
-                  Image #{scene.image_pool_index + 1}/{MAX_GENERATED_IMAGES}
+                  Image #{scene.image_pool_index + 1}
                 </Badge>
               )}
             </div>
