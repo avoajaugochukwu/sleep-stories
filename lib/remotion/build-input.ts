@@ -112,8 +112,8 @@ export function scheduleOverlays(totalFrames: number, fps: number): SleepOverlay
 // the visuals are deliberately slow, so the drop from 30 is invisible but cuts
 // frame count (and therefore Lambda compute) by ~20%.
 export const RENDER_FPS = 24;
-export const RENDER_WIDTH = 1920;
-export const RENDER_HEIGHT = 1080;
+export const RENDER_WIDTH = 3840;
+export const RENDER_HEIGHT = 2160;
 
 // Soft blend between scenes (no hard cut, no slide).
 const CROSSFADE_SEC = 1.2;

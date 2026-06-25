@@ -5,6 +5,19 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-24
 
+- **Changed: image generation now requests `scale: 4` (4K upscale).** The Modal
+  image API added a `scale` param (enum `1|4`, default `1`); `scale: 4` returns
+  5376×3072 instead of 1344×768, matching the 4K (3840×2160) render target.
+  Set in `lib/jobs/scene-image.ts`. Verified live: 5376×3072, ~20s warm.
+
+- **Changed: render output bumped 1080p → 4K (3840×2160).** Source images are
+  5376×3072, so 1080p was throwing away ~93% of the pixels. `RENDER_WIDTH/HEIGHT`
+  in `lib/remotion/build-input.ts` now 3840×2160; `remotion/defaults.ts` matched
+  for Studio preview. Real render dims come from input props via Root's
+  `calculateMetadata`, so the build-input change is what takes effect. **Watch:**
+  4K is ~4× the pixels → ~4× Lambda render time; long videos may approach the
+  900s function timeout and the 2048MB disk. Bump the function if renders fail.
+
 - **Changed: every scene now gets its own unique image — no more pool cap or
   repeating.** The old 100-image pool with shuffled overflow reuse existed to
   cap per-call cost; the self-hosted Modal image API is cheap enough that this no
