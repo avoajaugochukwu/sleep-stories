@@ -3,6 +3,25 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-26
+
+- **Neon now optional + more cinematic scenes.** The scene-breakdown system prompt
+  (`lib/scene-engine/sleep-scene-prompt.ts`) forced a neon accent on EVERY scene;
+  many scripts don't suit that. Made neon conditional — only when a real light
+  source fits, otherwise muted moonlight/lamplight/shadow. Added a "Cinematic"
+  composition rule (film-still framing, layered depth, atmospheric haze, motivated
+  directional light) and strengthened `IMAGE_GENERATION_SUFFIX` with anamorphic
+  widescreen + filmic color-grade language.
+- **Image-prompt audit fixes.** `NEGATIVE_PROMPT_SLEEP` in `lib/prompts/all-prompts.ts`
+  was exported but imported nowhere — the render used the shorter inline
+  `NEGATIVE_PROMPT` in `lib/jobs/scene-image.ts`, so frames/borders, neon-confetti,
+  anatomy defects, and nsfw/gore were silently ungated. Deleted the dead constant
+  and folded its high-value terms into the active negative prompt (kept short, since
+  Z-Image's positive prompt is what suffers from negation soup, not the dedicated
+  `negative_prompt` field). Also softened `IMAGE_GENERATION_SUFFIX`: it hard-required
+  "the single color named above," which referred to nothing when a scene named no
+  neon color — now neon is conditional, falling back to fully muted dark tones.
+
 ## 2026-06-25
 
 - **Reverted the 4K trial — back to 1080p @ 24fps. 4K full-length is NOT viable

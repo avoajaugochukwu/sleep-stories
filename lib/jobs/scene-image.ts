@@ -6,7 +6,7 @@ import { IMAGE_GENERATION_SUFFIX } from "@/lib/prompts/all-prompts";
 const IMAGE_API_BASE =
   "https://avoajaugochukwu--open-source-image-gen-web.modal.run";
 const NEGATIVE_PROMPT =
-  "bright daylight, harsh or high-key lighting, text, captions, watermarks, logos, busy or cluttered composition, scary, jarring, violent";
+  "bright daylight, harsh or high-key lighting, text, captions, watermarks, logos, busy or cluttered composition, confetti, scattered colored particles, floating neon dots, border, frame, picture frame, vignette frame, low quality, jpeg artifacts, deformed, extra limbs, scary, jarring, violent, gore, nsfw";
 
 // Cold starts can take ~40s; warm jobs ~10s. Poll generously.
 const POLL_INTERVAL_MS = 3000;
