@@ -5,7 +5,7 @@ import {
   type SoundEffectKey,
 } from "./build-input";
 import { planStoryText } from "@/lib/scene-engine/story-text";
-import { startSleepRender } from "./lambda";
+import { startModalRender } from "@/lib/render/modal";
 
 export interface StartRenderResult {
   renderId: string;
@@ -16,9 +16,15 @@ export interface StartRenderResult {
 }
 
 /**
- * Build the Remotion input, derive title + captions (one Claude call), and kick
- * the Lambda render. Shared by the interactive route (app/api/render/start) and
- * the background worker (lib/jobs/worker) so both produce identical renders.
+ * Derive the title (one Claude call via planStoryText) and kick the cheap Modal
+ * ffmpeg render. Shared by the interactive route (app/api/render/start) and the
+ * background worker (lib/jobs/worker) so both produce identical renders.
+ *
+ * ponytail: Modal composites the whole video itself (overlays, stars, grain,
+ * captions, title) from the raw scenes — we only still build the Remotion input
+ * + run planStoryText to get the AI title. The textOverlays it returns are
+ * unused (Modal makes its own captions); drop build-input/planStoryText here if
+ * a plain title (job name / first line) is ever good enough.
  */
 export async function startRenderForScenes(opts: {
   scenes: StoryboardScene[];
@@ -49,22 +55,26 @@ export async function startRenderForScenes(opts: {
     soundEffect: soundEffectKey,
   });
 
-  const { title, textOverlays } = await planStoryText({
+  const { title } = await planStoryText({
     renderScenes: input.scenes,
     storyboard: scenes,
     fps: input.fps,
     totalFrames: input.durationInFrames,
   });
-  input.title = title;
-  input.textOverlays = textOverlays;
 
-  const { renderId, bucketName } = await startSleepRender(input);
+  const start = await startModalRender({
+    scenes,
+    audioUrl,
+    audioDurationSec,
+    soundEffect: soundEffectKey,
+    title,
+  });
 
   return {
-    renderId,
-    bucketName,
-    title,
-    durationInFrames: input.durationInFrames,
-    sceneCount: input.scenes.length,
+    renderId: start.renderId,
+    bucketName: start.bucketName,
+    title: start.title || title,
+    durationInFrames: start.durationInFrames,
+    sceneCount: start.sceneCount,
   };
 }

@@ -1,31 +1,18 @@
 import { NextResponse } from "next/server";
-import { fetchSleepRenderProgress } from "@/lib/remotion/lambda";
+import { fetchModalRenderProgress } from "@/lib/render/modal";
 
 export const runtime = "nodejs";
 
+// Poll the Modal renderer. The `?bucket=` query param is now ignored (Modal
+// tracks its own output bucket) but still accepted so the UI needs no change.
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const bucketName = new URL(req.url).searchParams.get("bucket");
-  if (!bucketName) {
-    return NextResponse.json(
-      { error: "bucket query param required" },
-      { status: 400 },
-    );
-  }
-
   try {
-    const p = await fetchSleepRenderProgress(id, bucketName);
-    return NextResponse.json({
-      done: p.done,
-      overallProgress: p.overallProgress ?? 0,
-      outputFile: p.outputFile ?? null,
-      fatalErrorEncountered: p.fatalErrorEncountered ?? false,
-      errors: p.errors ?? [],
-      costsAccrued: p.costs?.accruedSoFar ?? null,
-    });
+    const p = await fetchModalRenderProgress(id);
+    return NextResponse.json(p);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

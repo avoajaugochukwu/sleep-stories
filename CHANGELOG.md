@@ -3,6 +3,27 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-27
+
+- **RENDER SWAP: Remotion-Lambda → Modal ffmpeg (~10× cheaper).** Dropped the
+  Lambda render path (the 900s main-function timeout made ~2h videos a coin-flip;
+  ~$10/render). New renderer is `render-modal/modal_app.py` (Modal, ffmpeg, full
+  port of the Remotion composition) at `https://avoajaugochukwu--sleep-render-web.modal.run`,
+  ~$1/render. Same HTTP contract, so the swap was transport-only:
+  - New `lib/render/modal.ts` (`startModalRender` + `fetchModalRenderProgress`);
+    base URL overridable via `RENDER_API_BASE`.
+  - `lib/remotion/start-render.ts` now POSTs raw scenes+audio+title to Modal
+    (Modal composites overlays/stars/grain/captions/title itself). Kept
+    `planStoryText` only to derive the AI title.
+  - `app/api/render/[id]` polls Modal; `?bucket=` param now ignored (accepted for
+    UI compat).
+  - Deleted `lib/remotion/lambda.ts` (last `@remotion/lambda` caller).
+  - Note: Modal writes to `generations/sleep-stories/<id>/<slug>.mp4` in the
+    image-gen bucket, NOT `renders/` in our Remotion bucket — so the `/render`
+    "recent renders" gallery (lists the Remotion bucket) won't show Modal outputs;
+    the active render's URL still surfaces via the status poll. Follow-up if the
+    gallery matters.
+
 ## 2026-06-26
 
 - **UI image gen: bounded pool of 10 + Cancel button.** The storyboard generator
