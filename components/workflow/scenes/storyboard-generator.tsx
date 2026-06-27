@@ -240,7 +240,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
         </div>
 
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>Images generated as warm, calming classical oil paintings.</p>
+          <p>Images generated as warm, calming vintage indie cartoon illustrations.</p>
           <p className="text-xs">
             Generating {totalScenes} unique images, one per scene
           </p>

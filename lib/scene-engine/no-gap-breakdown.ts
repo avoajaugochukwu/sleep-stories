@@ -269,7 +269,7 @@ export async function breakdownScript(
         script_snippet: raw.script_snippet,
         visual_prompt:
           raw.visual_context.trim() ||
-          'A calm, serene interior bathed in soft warm candlelight, quiet and intimate',
+          'A serene figure resting under a quiet starlit sky, peaceful and calm',
         duration,
       });
     }

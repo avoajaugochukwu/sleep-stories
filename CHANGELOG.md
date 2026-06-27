@@ -5,6 +5,8 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-27
 
+- **AESTHETIC PIVOT: warm old-master oil painting → vintage retro indie cartoon illustration.** Swapped out the restrictive 19th-century European oil painting style, which limited historical eras, for a highly versatile vintage graphic novel aesthetic (clean ink outlines, muted flat colors, risograph screen-print textures, celestial details). Updated `IMAGE_GENERATION_SUFFIX` in `all-prompts.ts`, updated `NEGATIVE_PROMPT` in `scene-image.ts` to allow cartoon illustrations while filtering out photos, 3D renders, and muddy oil paintings, and retrained the scene generator LLM system prompt in `sleep-scene-prompt.ts`.
+
 - **RENDER SWAP: Remotion-Lambda → Modal ffmpeg (~10× cheaper).** Dropped the
   Lambda render path (the 900s main-function timeout made ~2h videos a coin-flip;
   ~$10/render). New renderer is `render-modal/modal_app.py` (Modal, ffmpeg, full

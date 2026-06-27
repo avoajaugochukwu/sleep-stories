@@ -2,11 +2,10 @@ import type { Scene } from "@/lib/types";
 import { IMAGE_GENERATION_SUFFIX } from "@/lib/prompts/all-prompts";
 
 // Self-hosted Qwen/Z-Image gen on Modal (scale-to-zero, async submit->poll).
-// Has a real negative_prompt, so avoidances live there instead of the prompt.
 const IMAGE_API_BASE =
   "https://avoajaugochukwu--open-source-image-gen-web.modal.run";
 const NEGATIVE_PROMPT =
-  "photograph, photorealistic, 3d render, cgi, digital art, cartoon, anime, vector, harsh or high-key lighting, text, captions, watermarks, signature, logos, busy or cluttered composition, border, frame, picture frame, vignette frame, low quality, jpeg artifacts, deformed, extra limbs, mutated hands, scary, jarring, violent, gore, blood, nsfw, nudity, explicit";
+  "photograph, photorealistic, 3d render, cgi, oil painting, realistic painting, neon lights, glowing lasers, low quality, jpeg artifacts, deformed, extra limbs, mutated hands, scary, jarring, violent, gore, blood, nsfw, nudity, explicit";
 
 // Cold starts can take ~40s; warm jobs ~10s. Poll generously.
 const POLL_INTERVAL_MS = 3000;
@@ -20,7 +19,7 @@ export interface GeneratedImage {
 }
 
 /**
- * Generate one warm, painterly 16:9 scene image via the self-hosted Modal image
+ * Generate one warm, whimsical 16:9 scene image via the self-hosted Modal image
  * API. Shared by the interactive route (app/api/generate/scene-image) and the
  * background worker. Throws on failure so callers decide how to retry/skip.
  */
@@ -36,7 +35,7 @@ export async function generateSceneImage(
 
   const basePrompt =
     scene.visual_prompt ||
-    "A calm, serene interior bathed in soft warm candlelight, quiet and intimate";
+    "A serene figure looking up at a quiet, starlit sky, peaceful and calm";
   const styledPrompt = `${basePrompt}, ${IMAGE_GENERATION_SUFFIX}`;
 
   const submit = await fetch(`${IMAGE_API_BASE}/generate`, {

@@ -1,12 +1,7 @@
 // ============================================================================
 // SLEEP SCENE PERSONA LAYER
 // Per-chunk prompt that breaks a script chunk into long (~20s), calming scenes
-// with full verbatim coverage and a warm classical oil-painting visual concept
-// for each scene. Topic is derived from the narration itself.
-//
-// Adapted from scene-generation-service's scene-query persona layer, but tuned
-// for sleep content: longer scenes, no rapid cuts, and image-prompt output
-// instead of stock-footage search queries.
+// with full verbatim coverage and a gorgeous retro indie cartoon style.
 // ============================================================================
 
 export const GLOBAL_CONTEXT_PROMPT = (script: string) =>
@@ -19,11 +14,11 @@ export function buildSleepScenePersonaLayer(globalContext?: string): string {
     ? `\n## NARRATIVE CONTEXT\nThis chunk is part of a larger script. Overall summary (includes the historical period and setting):\n${globalContext}\nUse it to keep every scene grounded in the video's actual topic AND its correct era and place — clothing, architecture, and objects must match that period throughout, consistently across all scenes.\n`
     : '';
 
-  return `You are a fine-art visual director for long, calming "relaxing facts to fall asleep to" videos. You break a chunk of narration into slow, serene scenes and describe one warm classical oil painting for each.
+  return `You are a fine-art visual director for long, calming "relaxing facts to fall asleep to" videos. You break a chunk of narration into slow, serene scenes and describe a beautiful, retro hand-drawn indie illustration for each.
 
 You will be given a chunk of script text. Your job is to:
 1. Break it into natural scenes of roughly 20 seconds each when read aloud (~40-60 words per scene; several sentences).
-2. For each scene, write a single "visual_context": a calming oil-painting image concept whose subject is drawn from THAT part of the narration.
+2. For each scene, write a single "visual_context": a calming, graphic cartoon concept whose subject is drawn from THAT part of the narration.
 
 ## SCENE BREAKING RULES
 
@@ -46,17 +41,16 @@ Together, all script_snippets must cover the ENTIRE input chunk with NO gaps and
 ${narrativeSection}
 ## VISUAL_CONTEXT RULES
 
-For each scene, write ONE classical oil-painting image concept that is:
-- **Painterly and warm** — a scene that reads as an old-master oil painting: rich warm earth tones, soft glowing light, and a gentle, restful atmosphere.
-- **Calming and serene** — slow, still, dreamy. Something that helps a viewer drift to sleep.
-- **Topic-relevant** — the hero subject must come from the narration in that scene (e.g. clouds → soft clouds drifting over a quiet landscape at dusk; an owl → an owl perched in a moonlit wood; longevity → a serene elderly face in warm lamplight).
-- **Period- and place-accurate** — when the narration implies a specific era, culture, or place, the clothing, architecture, tools, and surroundings MUST match it (e.g. ancient Rome → togas and marble, not suits; medieval Europe → tunics and stone halls; feudal Japan → kimono and wooden interiors). Use historically correct COLORS for uniforms, dress, and objects even when they aren't warm (e.g. WWII Soviet greatcoats are khaki/grey-brown, not red). No anachronisms, no generic random scenes. Name the period/place concretely in the description so the painting is grounded, not invented.
-- **Single hero subject** — one clear subject anchoring the frame, with a soft, uncluttered background.
-- **Composed like a master painting** — a strong focal subject, layered depth, and soft chiaroscuro lighting that gently sculpts the subject; warm candlelight, lamplight, hearth-glow, or soft daylight through a window.
+For each scene, write ONE hand-drawn cartoon concept that is:
+- **Hand-drawn and dreamy** — a scene styled as a beautiful retro indie cartoon, graphic novel illustration, or vintage comic book frame.
+- **Calming and serene** — slow, quiet, dreamy, and highly comforting. Often incorporates gentle patterns or whimsical elements (such as soft stars, a crescent moon, calm natural landscapes, or serene celestial motifs) where thematic.
+- **Topic-relevant** — the primary subject must come directly from the narration in that scene.
+- **Period- and place-accurate** — when the narration implies a specific era, culture, or setting, clothing, architecture, tools, and surroundings MUST match it flawlessly (e.g., ancient Rome → togas and marble columns, not business suits; WWII Soviet uniforms → historically accurate khaki greatcoats; modern era → contemporary relaxed attire). Ground the setting clearly in the description.
+- **Single clear subject** — one clear hero subject anchoring the frame, with clean composition and an uncluttered background.
 
-Describe the subject, setting, lighting, and mood in 15-35 words. Do NOT add painting-technique jargon or quality tags (no "oil on canvas", "brushstrokes", etc.) — those are appended later. Do NOT mention text, captions, or logos.
+Describe the subject, setting, and mood in 15-35 words. Do NOT add art-style buzzwords (no "risograph", "halftone dots", "line art", "retro cartoon", "screenprint") — those style keywords are automatically appended later. Do NOT mention text, captions, or logos.
 
-AVOID: anachronisms or wrong-period dress/architecture, busy/cluttered compositions, harsh or garish light, anything scary, violent, gory, sexual, or jarring, and anything that would startle a sleeping viewer.
+AVOID: anachronisms, busy or cluttered graphics, harsh lighting, anything scary, violent, gory, sexual, or jarring to a sleeping viewer.
 
 ## OUTPUT FORMAT
 Return ONLY a JSON object (no markdown, no code fences) with this exact structure:
@@ -64,7 +58,7 @@ Return ONLY a JSON object (no markdown, no code fences) with this exact structur
   "scenes": [
     {
       "script_snippet": "exact verbatim text copied from the input",
-      "visual_context": "a warm, calming, classical oil-painting concept drawn from this part of the narration"
+      "visual_context": "a dreamy, calming, vintage hand-drawn concept drawn from this part of the narration"
     }
   ]
 }
