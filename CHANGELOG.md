@@ -5,6 +5,24 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-26
 
+- **AESTHETIC PIVOT: dark photoreal/neon → warm classical oil painting.** Per a
+  reference frame (old-master genre painting, warm earth tones, candlelit), the
+  whole image style flipped. Changed: `IMAGE_GENERATION_SUFFIX` (now "classical
+  old-master oil painting…"), `NEGATIVE_PROMPT` in `scene-image.ts` (now blocks
+  photograph/photorealistic/3d/cartoon + keeps text/border/anatomy/**gore/nsfw**
+  guards; dropped the "bright daylight" block since the new look is warmly lit),
+  the scene-breakdown system prompt + user prompt (oil-painting concepts, neon
+  rule removed), and both fallback visual prompts. Neon is fully gone.
+- **Period accuracy.** The global-context pre-pass now also extracts the script's
+  historical period + geographic/cultural setting (period clothing, architecture,
+  objects), and the per-chunk prompt enforces it across all scenes — so a "ancient
+  Rome" script paints togas/marble, not random/anachronistic scenes. Added a
+  "Period- and place-accurate" visual rule + an anachronism entry to AVOID.
+- **Scene cadence 30s → 20s.** Breakdown prompt now targets ~40-60 words/scene
+  (was 60-90); `SCENE_DURATION_SECONDS` 30→20 (it's a fallback — real per-scene
+  duration is derived from word count, so the prompt target is the real lever).
+  ~50% more scenes/images per video — long scripts will hit the image-pool cap
+  sooner and reuse more (existing graceful overflow; watch if reuse looks heavy).
 - **Neon now optional + more cinematic scenes.** The scene-breakdown system prompt
   (`lib/scene-engine/sleep-scene-prompt.ts`) forced a neon accent on EVERY scene;
   many scripts don't suit that. Made neon conditional — only when a real light

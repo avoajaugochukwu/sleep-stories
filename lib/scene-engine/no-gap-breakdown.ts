@@ -3,7 +3,7 @@
 // Splits a script into contiguous chunks, has the LLM break each chunk into
 // long calming scenes with verbatim coverage, heals/closes any coverage gaps,
 // then renumbers globally. Guarantees every word of the script lands in
-// exactly one scene. Outputs photographic sleep image prompts (not footage
+// exactly one scene. Outputs oil-painting sleep image prompts (not footage
 // search queries).
 // ============================================================================
 
@@ -27,8 +27,8 @@ const MIN_SCENE_DURATION = 5;
 export interface BreakdownScene {
   scene_number: number;
   script_snippet: string;
-  visual_prompt: string; // photographic, dark, calming image concept
-  duration: number; // seconds, derived from word count (~30s target)
+  visual_prompt: string; // warm classical oil-painting image concept
+  duration: number; // seconds, derived from word count (~20s target)
 }
 
 const RawSceneSchema = z.object({
@@ -141,7 +141,7 @@ async function generateForChunk(
   globalContext: string | undefined
 ): Promise<RawScene[]> {
   const systemPrompt = buildSleepScenePersonaLayer(globalContext);
-  const userPrompt = `Break the following script chunk into long, calming scenes and write one dark photographic image concept for each.\n\n"""\n${chunk.text}\n"""`;
+  const userPrompt = `Break the following script chunk into calming ~20s scenes and write one warm classical oil-painting concept for each.\n\n"""\n${chunk.text}\n"""`;
 
   let raw: unknown;
   try {
@@ -224,8 +224,8 @@ export interface BreakdownResult {
 }
 
 /**
- * Break a full script into gap-free, ~30s calming scenes with photographic
- * dark image prompts. Every word of the script is covered exactly once.
+ * Break a full script into gap-free, ~20s calming scenes with warm classical
+ * oil-painting image prompts. Every word of the script is covered exactly once.
  */
 export async function breakdownScript(
   script: string,
@@ -269,7 +269,7 @@ export async function breakdownScript(
         script_snippet: raw.script_snippet,
         visual_prompt:
           raw.visual_context.trim() ||
-          'A calm, dark, dreamlike scene in deep shadow with soft muted light',
+          'A calm, serene interior bathed in soft warm candlelight, quiet and intimate',
         duration,
       });
     }

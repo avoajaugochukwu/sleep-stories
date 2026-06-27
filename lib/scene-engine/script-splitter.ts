@@ -13,8 +13,8 @@ export interface Chunk {
   sentence_count: number;
 }
 
-// Each chunk is one LLM call that returns several ~30s scenes. 40 sentences
-// (~700 words) yields ~10–14 scenes per call — a good balance of scene count
+// Each chunk is one LLM call that returns several ~20s scenes. 40 sentences
+// (~700 words) yields ~14–18 scenes per call — a good balance of scene count
 // vs. number of API round-trips (smaller chunks multiply the calls and can blow
 // the analyze route's time budget on a slower model).
 export const DEFAULT_SENTENCES_PER_CHUNK = 40;
