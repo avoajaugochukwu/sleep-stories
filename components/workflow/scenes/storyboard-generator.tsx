@@ -5,8 +5,15 @@ import { useSessionStore } from '@/lib/store';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { StoryboardScene } from '@/lib/types';
-import { Film, CheckCircle, AlertCircle } from 'lucide-react';
+import { Film, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+
+// Match the worker's bounded pool (lib/jobs/worker.ts) so the browser doesn't
+// fire all N requests at Modal at once. The queue lives client-side, so Cancel
+// (or a refresh) stops every not-yet-submitted scene — only the in-flight ≤10
+// may finish on Modal.
+const POOL_SIZE = 10;
 
 interface StoryboardGeneratorProps {
   onComplete?: () => void;
@@ -23,48 +30,16 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
   } = useSessionStore();
 
   const [generatingScenes, setGeneratingScenes] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const [currentGeneratingScene, setCurrentGeneratingScene] = useState(0);
   const [imagePoolGenerated, setImagePoolGenerated] = useState(0);
   const hasGeneratedScenesRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const generateSceneImage = async (scene: StoryboardScene) => {
-    try {
-      updateStoryboardScene(scene.scene_number, {
-        generation_status: 'generating',
-      });
-
-      const response = await fetch('/api/generate/scene-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          scene,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate scene image');
-      }
-
-      const data = await response.json();
-      console.log(`Scene ${scene.scene_number} generated with ${data.style} style`);
-
-      updateStoryboardScene(scene.scene_number, {
-        image_url: data.image_url,
-        visual_prompt: data.prompt_used,
-        generation_status: 'completed',
-      });
-
-      return true;
-    } catch (error) {
-      console.error(`Scene ${scene.scene_number} generation error:`, error);
-      updateStoryboardScene(scene.scene_number, {
-        generation_status: 'error',
-        error_message: 'Failed to generate image',
-      });
-      return false;
-    }
+  const cancelGeneration = () => {
+    abortRef.current?.abort();
+    setCancelled(true);
+    setGeneratingScenes(false);
   };
 
   const generateAllScenes = async () => {
@@ -88,55 +63,64 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
     }
 
     // Generate one unique image per scene — the image API is cheap, no reuse.
-    console.log(`Generating ${totalScenes} unique images`);
+    // Bounded pool of POOL_SIZE workers (mirrors the Railway worker) so we don't
+    // fire all N at Modal at once; an AbortController lets Cancel stop the rest.
+    console.log(`Generating ${totalScenes} unique images (pool ${POOL_SIZE})`);
 
-    const imageGenerationPromises = scenes.map(async (scene, index) => {
-      updateStoryboardScene(scene.scene_number, {
-        generation_status: 'generating',
-      });
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let cursor = 0;
 
-      try {
-        const response = await fetch('/api/generate/scene-image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            scene,
-          }),
+    const runWorker = async () => {
+      while (!controller.signal.aborted) {
+        const index = cursor++;
+        if (index >= scenes.length) return;
+        const scene = scenes[index];
+
+        updateStoryboardScene(scene.scene_number, {
+          generation_status: 'generating',
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to generate scene image');
+        try {
+          const response = await fetch('/api/generate/scene-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scene }),
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to generate scene image');
+          }
+
+          const data = await response.json();
+          setImagePoolGenerated((prev) => prev + 1);
+          updateStoryboardScene(scene.scene_number, {
+            image_url: data.image_url,
+            visual_prompt: data.prompt_used,
+            generation_status: 'completed',
+            image_pool_index: index,
+          });
+        } catch (error) {
+          if (controller.signal.aborted) return; // cancelled — stop quietly
+          console.error(`Image pool generation error (index ${index}):`, error);
+          updateStoryboardScene(scene.scene_number, {
+            generation_status: 'error',
+            error_message: 'Failed to generate image',
+          });
         }
-
-        const data = await response.json();
-
-        setImagePoolGenerated(prev => prev + 1);
-
-        updateStoryboardScene(scene.scene_number, {
-          image_url: data.image_url,
-          visual_prompt: data.prompt_used,
-          generation_status: 'completed',
-          image_pool_index: index,
-        });
-
-        return data.image_url;
-      } catch (error) {
-        console.error(`Image pool generation error (index ${index}):`, error);
-        updateStoryboardScene(scene.scene_number, {
-          generation_status: 'error',
-          error_message: 'Failed to generate image',
-        });
-        return null;
       }
-    });
+    };
 
-    // Wait for all unique images to be generated
-    await Promise.all(imageGenerationPromises);
+    await Promise.all(
+      Array.from({ length: Math.min(POOL_SIZE, scenes.length) }, runWorker),
+    );
 
-    setGeneratingScenes(false);
-    console.log(`✓ Complete: ${totalScenes} unique images`);
+    abortRef.current = null;
+    if (!controller.signal.aborted) {
+      setGeneratingScenes(false);
+      console.log(`✓ Complete: ${totalScenes} unique images`);
+    }
   };
 
   useEffect(() => {
@@ -213,7 +197,20 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
                 Generating
               </Badge>
             )}
+            {cancelled && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <XCircle className="h-3 w-3" />
+                Cancelled
+              </Badge>
+            )}
           </div>
+
+          {generatingScenes && (
+            <Button variant="destructive" size="sm" onClick={cancelGeneration}>
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancel generation
+            </Button>
+          )}
         </div>
 
         {/* Scene Grid Preview */}
@@ -243,7 +240,7 @@ export function StoryboardGenerator({ onComplete }: StoryboardGeneratorProps) {
         </div>
 
         <div className="text-sm text-muted-foreground space-y-1">
-          <p>Images generated with a dark, calming, cinematic style.</p>
+          <p>Images generated as warm, calming classical oil paintings.</p>
           <p className="text-xs">
             Generating {totalScenes} unique images, one per scene
           </p>

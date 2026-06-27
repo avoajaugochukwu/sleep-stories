@@ -5,6 +5,15 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-06-26
 
+- **UI image gen: bounded pool of 10 + Cancel button.** The storyboard generator
+  fired ALL scene images at Modal at once (unbounded `Promise.all`) — so a refresh
+  left jobs running and there was no way to stop them. Rewrote it as a 10-worker
+  pool (matches the Railway worker) driven by an `AbortController`; the queue now
+  lives client-side, so Cancel (or a refresh) stops every not-yet-submitted scene —
+  only the in-flight ≤10 can still finish on Modal. Added a "Cancel generation"
+  button + Cancelled badge. Deleted dead `generateSceneImage` helper; fixed stale
+  "dark cinematic" copy → "warm classical oil paintings".
+
 - **AESTHETIC PIVOT: dark photoreal/neon → warm classical oil painting.** Per a
   reference frame (old-master genre painting, warm earth tones, candlelit), the
   whole image style flipped. Changed: `IMAGE_GENERATION_SUFFIX` (now "classical
@@ -13,6 +22,13 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
   guards; dropped the "bright daylight" block since the new look is warmly lit),
   the scene-breakdown system prompt + user prompt (oil-painting concepts, neon
   rule removed), and both fallback visual prompts. Neon is fully gone.
+- **Period-correct colors.** WW2 test showed the suffix's "rich warm earth-toned
+  palette" force-warmed a Soviet greatcoat to RED. Softened to "warm, muted
+  painterly palette … keep colors of clothing/uniforms/objects true to life, not
+  artificially warmed" (`IMAGE_GENERATION_SUFFIX`), and added a color clause to
+  the period rule (`sleep-scene-prompt.ts`: "historically correct colors … e.g.
+  WWII Soviet greatcoats are khaki/grey-brown, not red"). Re-ran: greatcoat now
+  khaki. Lesson: a warm-palette mandate fights historically cool/drab colors.
 - **Period accuracy.** The global-context pre-pass now also extracts the script's
   historical period + geographic/cultural setting (period clothing, architecture,
   objects), and the per-chunk prompt enforces it across all scenes — so a "ancient
