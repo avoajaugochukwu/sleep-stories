@@ -43,7 +43,7 @@ ${narrativeSection}
 
 For each scene, write ONE hand-drawn illustration concept that is:
 - **Hand-drawn and dreamy** — a scene styled as a beautiful ink-and-watercolour illustration with painted washes of colour.
-- **Richly coloured** — vivid, saturated colour with warm-and-cool contrast. NEVER call for muted, pastel, washed-out, greyscale, or desaturated palettes.
+- **Naturally coloured** — a restrained, naturalistic palette of muted earthy tones with gentle warm-and-cool contrast. Do NOT call for vivid, saturated, garish, or neon colour, nor for fully greyscale.
 - **Calming and serene** — slow, quiet, dreamy, and highly comforting. Often incorporates gentle patterns or whimsical elements (such as soft stars, a crescent moon, calm natural landscapes, or serene celestial motifs) where thematic.
 - **Topic-relevant** — the primary subject must come directly from the narration in that scene.
 - **Period- and place-accurate** — when the narration implies a specific era, culture, or setting, clothing, architecture, tools, and surroundings MUST match it flawlessly (e.g., ancient Rome → togas and marble columns, not business suits; WWII Soviet uniforms → historically accurate khaki greatcoats; modern era → contemporary relaxed attire). Ground the setting clearly in the description.
