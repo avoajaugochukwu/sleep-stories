@@ -221,18 +221,13 @@ export function buildSleepVideoInput(opts: {
     }
   }
 
-  // Carry forward the last seen image so scenes that failed generation still
-  // show something (we never drop a scene — full script coverage).
-  let lastImage = ordered.find((s) => s.image_url)?.image_url ?? "";
-
   const renderScenes: SleepRenderScene[] = [];
   let cursor = 0;
   ordered.forEach((s, i) => {
     const dur = Math.max(1, floored[i]);
-    if (s.image_url) lastImage = s.image_url;
     renderScenes.push({
       id: `scene-${s.scene_number}`,
-      imageUrl: s.image_url || lastImage,
+      imageUrl: s.image_url ?? "",
       startFrame: cursor,
       durationInFrames: dur,
       zoom: i % 2 === 0 ? "in" : "out",

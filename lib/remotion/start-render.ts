@@ -31,6 +31,8 @@ export async function startRenderForScenes(opts: {
   audioUrl: string;
   audioDurationSec: number;
   soundEffect?: string;
+  /** Override the AI title (e.g. ClickUp task name) — also names the render file. */
+  title?: string;
 }): Promise<StartRenderResult> {
   const { scenes, audioUrl, audioDurationSec, soundEffect } = opts;
 
@@ -55,12 +57,17 @@ export async function startRenderForScenes(opts: {
     soundEffect: soundEffectKey,
   });
 
-  const { title } = await planStoryText({
-    renderScenes: input.scenes,
-    storyboard: scenes,
-    fps: input.fps,
-    totalFrames: input.durationInFrames,
-  });
+  // Prefer a caller-supplied title (ClickUp task name); only ask Claude otherwise.
+  const title =
+    opts.title?.trim() ||
+    (
+      await planStoryText({
+        renderScenes: input.scenes,
+        storyboard: scenes,
+        fps: input.fps,
+        totalFrames: input.durationInFrames,
+      })
+    ).title;
 
   const start = await startModalRender({
     scenes,

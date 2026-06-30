@@ -3,6 +3,36 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-06-29
+
+- **Image aesthetic → richly coloured ink-and-watercolour.** Swapped
+  `IMAGE_GENERATION_SUFFIX` (`lib/prompts/all-prompts.ts`) from the muted-flat
+  risograph indie-cartoon look to bold black ink outlines + crosshatch over
+  **saturated, vivid** watercolour washes (warm/cool contrast, luminous light
+  source, chiaroscuro, paper grain) — modelled on a hand-drawn etched-line +
+  watercolour reference, but deliberately colourful rather than pastel. Also
+  retuned the scene-prompt persona (`lib/scene-engine/sleep-scene-prompt.ts`):
+  medium wording now "ink-and-watercolour", added a **"Richly coloured — never
+  muted/pastel/desaturated"** rule to stop the LLM baking "muted color palette"
+  into scene descriptions (which fought the suffix). Server-side only (worker +
+  `/api/generate/scene-image`), not in the Remotion bundle → no `deploy:site`;
+  takes effect for the ingest pipeline on the next `railway up`.
+
+- **Failed-image scenes are backfilled, not dropped.** Modal's `/render/start`
+  used to filter out any scene missing `image_url` (`modal_app.py`), which
+  shortened the video below the narration length — `-shortest` then clipped the
+  tail of the audio. Now a scene with a failed image reuses the previous scene's
+  image, so the timeline always matches the full narration. Requires
+  `modal deploy render-modal/modal_app.py`. Removed the now-redundant carry-forward
+  in `lib/remotion/build-input.ts` (its `imageUrl` only fed the retired Remotion
+  composition; Modal owns backfill now).
+
+- **Ingest renders are named from the ClickUp task.** `startRenderForScenes` now
+  takes an optional `title`; the worker passes `job.name` (the ClickUp task name)
+  so the render file (`generations/sleep-stories/<id>/<slug>.mp4`) and on-screen
+  title use it instead of an AI guess. Skips the `planStoryText` Claude call when
+  a title is given; falls back to AI when the name is the `"Untitled"` default.
+
 ## 2026-06-27
 
 - **AESTHETIC PIVOT: warm old-master oil painting → vintage retro indie cartoon illustration.** Swapped out the restrictive 19th-century European oil painting style, which limited historical eras, for a highly versatile vintage graphic novel aesthetic (clean ink outlines, muted flat colors, risograph screen-print textures, celestial details). Updated `IMAGE_GENERATION_SUFFIX` in `all-prompts.ts`, updated `NEGATIVE_PROMPT` in `scene-image.ts` to allow cartoon illustrations while filtering out photos, 3D renders, and muddy oil paintings, and retrained the scene generator LLM system prompt in `sleep-scene-prompt.ts`.

@@ -4,8 +4,9 @@
 
 /**
  * Suffix appended to every scene image prompt to enforce the Sleep Stories
- * aesthetic: a beautiful, textured retro indie illustration. Written as natural
- * language for Z-Image instruction-following.
+ * aesthetic: a hand-drawn ink-and-watercolour illustration with rich, saturated
+ * colour (not pastels). Written as natural language for Z-Image
+ * instruction-following.
  */
 export const IMAGE_GENERATION_SUFFIX =
-  "A beautiful retro indie cartoon illustration style, vintage hand-drawn graphic novel art with clean black ink outlines, muted flat color palette, risograph screen-print texture, fine paper grain, whimsical and dreamy mood, balanced graphic composition, full-frame edge-to-edge.";
+  "A hand-drawn ink-and-watercolour illustration, bold confident black ink outlines with fine crosshatching and stippling, painted over with rich saturated watercolour washes; a vivid full-colour palette — deep teals and blues, warm ambers, golden ochres, russet reds and lush greens — with strong warm-and-cool colour contrast and a luminous glow from the main light source; soft cinematic chiaroscuro, gentle aged-paper grain, dreamy and calming mood, balanced storybook composition, full-frame edge-to-edge 16:9.";

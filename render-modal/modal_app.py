@@ -401,7 +401,15 @@ def web():
     @api.post("/render/start")
     async def start(body: dict = Body(...)):
         rid = uuid.uuid4().hex[:12]
-        scenes = [s for s in body["scenes"] if s.get("image_url") and s.get("duration")]
+        # Keep every scene with a duration; a scene whose image failed to generate
+        # reuses the previous scene's image (full audio coverage, never dropped).
+        raw = [s for s in body["scenes"] if s.get("duration")]
+        last = next((s["image_url"] for s in raw if s.get("image_url")), None)
+        scenes = []
+        if last:
+            for s in raw:
+                last = s.get("image_url") or last
+                scenes.append({**s, "image_url": last})
         title = body.get("title") or "A Quiet Night"
         driver.spawn(rid, scenes, body["audioUrl"], body["audioDurationSec"],
                      body.get("soundEffect", "fire"), title)

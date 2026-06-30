@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionStore } from "@/lib/store";
-import type { RenderJob } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -13,7 +12,6 @@ import {
 } from "@/lib/remotion/build-input";
 import { NavigationButtons } from "@/components/common/navigation-buttons";
 import {
-  AlertTriangle,
   AudioLines,
   CheckCircle2,
   Clapperboard,
@@ -42,26 +40,15 @@ function fmtDuration(sec: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${r}s`;
 }
 
-// Elapsed render time, e.g. "47s", "3m 12s", "1h 04m". Counts up live while a
-// render runs, then freezes at the done/error moment (via finishedAt).
-function fmtElapsed(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = s % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
-  if (m > 0) return `${m}m ${r}s`;
-  return `${r}s`;
-}
-
 function fmtAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.round(diff / 60000);
+  const then = new Date(iso);
+  const mins = Math.round((Date.now() - then.getTime()) / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.round(hrs / 24)}d ago`;
+  // Older than a day → show the calendar date instead of a coarse "Nd ago".
+  return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function RenderPanel() {
@@ -72,7 +59,6 @@ export function RenderPanel() {
     renders,
     addRender,
     updateRender,
-    removeRender,
     _hydrated,
   } = useSessionStore();
 
@@ -307,16 +293,6 @@ export function RenderPanel() {
         )}
       </div>
 
-      {/* This session's renders */}
-      {renders.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">This session</h3>
-          {renders.map((r) => (
-            <SessionRenderRow key={r.renderId} job={r} onRemove={removeRender} />
-          ))}
-        </div>
-      )}
-
       {/* 7-day history from S3 */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -373,81 +349,6 @@ export function RenderPanel() {
         showNext={false}
         showReset={false}
       />
-    </div>
-  );
-}
-
-function SessionRenderRow({
-  job,
-  onRemove,
-}: {
-  job: RenderJob;
-  onRemove: (renderId: string) => void;
-}) {
-  const pct = Math.round(job.progress * 100);
-
-  // Tick a clock every second while rendering so the elapsed time counts up;
-  // once done/error we read the frozen finishedAt instead.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (job.status !== "rendering") return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [job.status]);
-
-  const showElapsed = job.status === "rendering" || job.finishedAt != null;
-  const elapsedMs =
-    (job.status === "rendering" ? now : job.finishedAt ?? job.createdAt) -
-    job.createdAt;
-
-  return (
-    <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{job.title}</p>
-          <p className="text-xs text-muted-foreground">
-            {job.status === "rendering" && `Rendering… ${pct}%`}
-            {job.status === "done" && "Ready"}
-            {job.status === "error" && "Failed"}
-            {showElapsed && ` · ${fmtElapsed(elapsedMs)}`}
-            {job.cost != null && ` · ~$${job.cost.toFixed(3)}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          {job.status === "rendering" && (
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          )}
-          {job.status === "done" && job.outputFile && (
-            <a
-              href={job.outputFile}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Download className="mr-1 h-3.5 w-3.5" /> Download
-            </a>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onRemove(job.renderId)}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-      {job.status === "rendering" && (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-          <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-        </div>
-      )}
-      {job.status === "error" && (
-        <div className="mt-2 flex items-start gap-2 text-xs text-destructive">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="break-words">{job.error}</span>
-        </div>
-      )}
     </div>
   );
 }

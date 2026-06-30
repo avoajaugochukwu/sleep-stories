@@ -1,7 +1,7 @@
 // ============================================================================
 // SLEEP SCENE PERSONA LAYER
 // Per-chunk prompt that breaks a script chunk into long (~20s), calming scenes
-// with full verbatim coverage and a gorgeous retro indie cartoon style.
+// with full verbatim coverage and a richly coloured ink-and-watercolour style.
 // ============================================================================
 
 export const GLOBAL_CONTEXT_PROMPT = (script: string) =>
@@ -14,7 +14,7 @@ export function buildSleepScenePersonaLayer(globalContext?: string): string {
     ? `\n## NARRATIVE CONTEXT\nThis chunk is part of a larger script. Overall summary (includes the historical period and setting):\n${globalContext}\nUse it to keep every scene grounded in the video's actual topic AND its correct era and place — clothing, architecture, and objects must match that period throughout, consistently across all scenes.\n`
     : '';
 
-  return `You are a fine-art visual director for long, calming "relaxing facts to fall asleep to" videos. You break a chunk of narration into slow, serene scenes and describe a beautiful, retro hand-drawn indie illustration for each.
+  return `You are a fine-art visual director for long, calming "relaxing facts to fall asleep to" videos. You break a chunk of narration into slow, serene scenes and describe a beautiful, richly coloured hand-drawn ink-and-watercolour illustration for each.
 
 You will be given a chunk of script text. Your job is to:
 1. Break it into natural scenes of roughly 20 seconds each when read aloud (~40-60 words per scene; several sentences).
@@ -41,8 +41,9 @@ Together, all script_snippets must cover the ENTIRE input chunk with NO gaps and
 ${narrativeSection}
 ## VISUAL_CONTEXT RULES
 
-For each scene, write ONE hand-drawn cartoon concept that is:
-- **Hand-drawn and dreamy** — a scene styled as a beautiful retro indie cartoon, graphic novel illustration, or vintage comic book frame.
+For each scene, write ONE hand-drawn illustration concept that is:
+- **Hand-drawn and dreamy** — a scene styled as a beautiful ink-and-watercolour illustration with painted washes of colour.
+- **Richly coloured** — vivid, saturated colour with warm-and-cool contrast. NEVER call for muted, pastel, washed-out, greyscale, or desaturated palettes.
 - **Calming and serene** — slow, quiet, dreamy, and highly comforting. Often incorporates gentle patterns or whimsical elements (such as soft stars, a crescent moon, calm natural landscapes, or serene celestial motifs) where thematic.
 - **Topic-relevant** — the primary subject must come directly from the narration in that scene.
 - **Period- and place-accurate** — when the narration implies a specific era, culture, or setting, clothing, architecture, tools, and surroundings MUST match it flawlessly (e.g., ancient Rome → togas and marble columns, not business suits; WWII Soviet uniforms → historically accurate khaki greatcoats; modern era → contemporary relaxed attire). Ground the setting clearly in the description.

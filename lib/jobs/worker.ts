@@ -132,6 +132,7 @@ async function processJob(job: SleepJob): Promise<void> {
       scenes: storyboard,
       audioUrl: job.audioUrl,
       audioDurationSec: durationSec,
+      title: job.name === "Untitled" ? undefined : job.name,
     });
 
     const renderJob: RenderJob = {
