@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 
 // Default configuration
-export const DEFAULT_MODEL = 'gpt-4o';
+export const DEFAULT_MODEL = 'gpt-4o-mini';
 export const DEFAULT_TEMPERATURE = 0.7;
 
 let openaiClient: OpenAI | null = null;

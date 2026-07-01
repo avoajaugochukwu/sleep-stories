@@ -5,6 +5,14 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-01
 
+- **Scene-engine LLM: `gpt-4o` → `gpt-4o-mini`** (`DEFAULT_MODEL`,
+  `lib/ai/openai.ts`). Cost cut (~15× cheaper: $0.15/$0.60 vs $2.50/$10 per M)
+  for the breakdown + global-context calls. Task is subject-only JSON (art style
+  is appended downstream via recipe-D), so mini is expected to match. Same OpenAI
+  key/SDK — the pulled-in OpenRouter token is unused. **If scene-prompt quality
+  drops (weaker subjects, more per-chunk zod fallbacks), revert this line to
+  `gpt-4o`** or try `google/gemini-2.5-flash-lite` via OpenRouter.
+
 - **Image gen → Krea-2 `cartoon` style + recipe-D suffix + subject-only writer.**
   The image service (same URL) now runs Krea-2-Turbo and renders the prompt
   **verbatim**; the cartoon LoRA is selected with a new `style:"cartoon"` field.
