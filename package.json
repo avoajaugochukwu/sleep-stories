@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "studio": "remotion studio",
-    "deploy:lambda": "node --env-file-if-exists=.env.local scripts/deploy-lambda.mjs",
     "deploy:site": "node --env-file-if-exists=.env.local scripts/deploy-site.mjs"
   },
   "dependencies": {
@@ -25,8 +23,6 @@
     "@radix-ui/react-radio-group": "^1.3.8",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.7",
-    "@remotion/google-fonts": "4.0.451",
-    "@remotion/lambda": "4.0.451",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "compromise": "^14.15.1",
@@ -40,14 +36,12 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.6.0",
-    "remotion": "4.0.451",
     "tailwind-merge": "^3.3.1",
     "zod": "4.3.6",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@remotion/cli": "4.0.451",
     "@tailwindcss/postcss": "^4",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",

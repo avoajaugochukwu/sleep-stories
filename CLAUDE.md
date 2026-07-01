@@ -1,27 +1,23 @@
 # Project guide for Claude
 
-Next.js app that turns a script + narration audio into a Remotion sleep video:
-UI breaks the script into scenes + images → uploads audio to S3 → Lambda renders
-the composition (crossfading scenes, slow stars/fog/light-rays/grain) to S3.
+Next.js app that turns a script + narration audio into a sleep video:
+UI breaks the script into scenes + images → uploads audio to S3 → a **Modal**
+ffmpeg app composites the video (crossfading scenes, slow stars/fog/light-rays/
+grain) and writes the MP4 to S3.
 
 There are **two ways in**: the interactive UI (`/scenes` → `/render`), and a
 **headless Baserow/ClickUp ingest pipeline** that does the whole thing on its own
-(see "Ingest pipeline" below). Both end at the same Lambda render.
+(see "Ingest pipeline" below). Both end at the same Modal render.
 
 ## Always-on rules
 
-**Auto-redeploy — do not ask.** The Lambda renders the **deployed site bundle**,
-not local files. When you edit files that affect what runs on Lambda, redeploy in
-the background:
-
-- `npm run deploy:site` — after changes to `remotion/**`, `remotion.config.ts`,
-  or any `lib/*` file imported by the Remotion bundle (currently
-  `lib/remotion/types.ts`). Re-bundles + uploads to the same URL; no env change.
-- `npm run deploy:lambda` — after changes to `scripts/deploy-lambda.mjs`, or when
-  the `@remotion/lambda` version actually moves. Never deploy a function whose
-  name would collide with prod's (`…mem10240mb-disk10240mb…`).
-
-Verify the exit code when each job completes; non-zero = stale code on Lambda.
+**Rendering runs on Modal — NOT AWS Lambda/Remotion (both deleted 2026-07-01).**
+Video is composited by an ffmpeg app on Modal (`render-modal/modal_app.py`),
+called via `lib/render/modal.ts` (`RENDER_API_BASE`). There is no site bundle to
+deploy and no Lambda function to keep warm. **Never** reintroduce `@remotion/*`,
+`renderMediaOnLambda`, or `deploy:lambda` — prod's Lambda stack shares this AWS
+account and must stay untouched. To redeploy the renderer, push the Modal app
+(`render-modal/`), not this repo. `deploy:site` now only provisions the S3 bucket.
 
 **Type-check after edits.** Run `npx tsc --noEmit` after editing any `.ts`/`.tsx`
 (the Next build also type-checks, but tsc is faster for a quick pass).
@@ -34,16 +30,15 @@ how we avoid relearning the same failures.
 
 ## AWS facts (don't relearn these)
 
-- Region **us-west-2** (same as the remotion-test-2 production stack, for its
-  1500 Lambda concurrency).
+- Region **us-west-2**. We now only use **S3** here (no Lambda). The
+  remotion-test-2 **prod Lambda stack shares this account** — leave its
+  `remotion-render-…disk10240mb…` functions alone.
 - Our **own dedicated bucket** `remotionlambda-uswest2-sleepstories` — nothing
-  shared with prod. Holds `audio/` (uploads), `renders/` (output),
-  `sites/sleep-stories/` (the bundle); 7-day lifecycle on `audio/` + `renders/`.
-- Our **own function** `remotion-render-4-0-451-mem10240mb-disk2048mb-900sec` —
-  distinct from prod's `…disk10240mb…`, so prod is never touched.
-- Two `remotionlambda-…` buckets exist in the region, so `renderMediaOnLambda`
-  passes `forceBucketName` (= `REMOTION_RENDER_BUCKET`) to pick ours. Expected,
-  not a workaround — Remotion otherwise refuses to guess between buckets.
+  shared with prod. Holds `audio/` (uploads) + `renders/` (Modal output);
+  7-day lifecycle on both. (Name starts `remotionlambda-` for historical reasons;
+  it's just our S3 bucket now.) Provisioned by `npm run deploy:site`.
+- `REMOTION_RENDER_BUCKET` (= that bucket) is passed explicitly on S3 ops since
+  two `remotionlambda-…` buckets exist in the region.
 - Config + AWS keys are in `.env.local` (gitignored).
 
 ## Ingest pipeline (Baserow/ClickUp → headless render)
@@ -60,7 +55,7 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   long-lived Railway server** (won't run on serverless). Does the whole pipeline
   headless: `breakdownScript` → image pool (cap `MAX_GENERATED_IMAGES`, overflow
   reuse) → audio duration (`music-metadata`, since the browser's `<audio>` trick
-  has no DOM here) → Lambda render → stores the finished `WorkflowExport` as the
+  has no DOM here) → Modal render → stores the finished `WorkflowExport` as the
   job's `project_json`. Flips ClickUp status (in-progress → done) and flags the
   Baserow row `video_processed`. Cooperative cancel. All ClickUp/Baserow
   writebacks are best-effort (caught) — a missing status label or wrong row never
@@ -90,15 +85,16 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   long-lived process.
 - Deploy with `railway up --service sleep-stories` from this dir (CLI already
   linked). Setting env vars: `railway variables --set "K=V" --skip-deploys`.
-- This is **separate** from the Remotion Lambda/site deploys above — those push
-  the render bundle to S3; this pushes the web app + ingest worker to Railway.
+- This is **separate** from the Modal renderer (`render-modal/`) and the
+  `deploy:site` bucket provisioner; this pushes the web app + ingest worker.
 
 ## Where to look
 
-- `remotion/` — the video composition (bundled by Webpack; relative imports only,
-  the `@/` alias does not work here).
-- `lib/remotion/` — input builder, Lambda client, shared types; `start-render.ts`
-  is the shared "build input + plan text + kick Lambda" core (UI route + worker).
+- `render-modal/` — the Modal ffmpeg renderer (Python) that composites the video.
+- `lib/render/modal.ts` — HTTP client for the Modal renderer (start + poll).
+- `lib/remotion/` — input builder + shared types; `start-render.ts` is the shared
+  "build input + plan title + kick Modal" core (UI route + worker). (Dir keeps its
+  old name; it no longer depends on any `remotion` package.)
 - `lib/jobs/` — ingest worker, Turso store, ClickUp/Baserow clients, board config.
 - `app/api/render/*` — start a render + poll progress; `app/api/renders` lists the
   last 7 days from our bucket.

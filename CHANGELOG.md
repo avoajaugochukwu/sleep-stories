@@ -5,6 +5,21 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-01
 
+- **Removed AWS Lambda + Remotion entirely — rendering is Modal-only now.**
+  Rendering already went through Modal (`lib/render/modal.ts`, ffmpeg in
+  `render-modal/modal_app.py`); Lambda + the Remotion composition were dead weight
+  still costing money. Deleted the three *our* Lambda functions in us-west-2
+  (`…mem10240mb-disk2048mb…`, `…mem10240mb-disk8192mb…`, `…mem3072mb-disk2048mb…`);
+  **left prod's two `…disk10240mb…` (4-0-451 + 4-0-462) untouched.** Deleted
+  `remotion/` (composition), `remotion.config.ts`, `scripts/deploy-lambda.mjs`;
+  dropped deps `remotion`, `@remotion/cli`, `@remotion/lambda`,
+  `@remotion/google-fonts`, the `studio`/`deploy:lambda` npm scripts, and the
+  `serverExternalPackages` Remotion externals in `next.config.ts`. `deploy:site`
+  now only provisions the S3 bucket (`ensureBucket`/CORS/lifecycle) — the
+  `deploySite` call is gone. `lib/remotion/{build-input,types,start-render}.ts`
+  stay (plain TS the Modal path still uses for input + AI title). User-facing
+  "AWS Lambda"/"failed on Lambda" copy → "Modal".
+
 - **Scene-engine LLM: `gpt-4o` → `gpt-5.5-2026-04-23`** (`DEFAULT_MODEL`,
   `lib/ai/openai.ts`), matching the `scene-generation-service` setup — gpt-4o-mini
   results weren't good enough. GPT-5 family **rejects custom `temperature`** and

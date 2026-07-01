@@ -1,5 +1,3 @@
-import path from "node:path";
-import { deploySite } from "@remotion/lambda";
 import {
   CreateBucketCommand,
   DeletePublicAccessBlockCommand,
@@ -14,7 +12,6 @@ import {
 // Our OWN dedicated bucket — nothing is shared with production. Name must start
 // with "remotionlambda-" (a Remotion requirement) and is globally unique.
 const region = process.env.AWS_REGION ?? "us-west-2";
-const siteName = process.env.REMOTION_SITE_NAME ?? "sleep-stories";
 const bucketName =
   process.env.REMOTION_RENDER_BUCKET ?? "remotionlambda-uswest2-sleepstories";
 
@@ -128,33 +125,16 @@ async function configureLifecycle() {
 }
 
 async function main() {
-  console.log(`[deploy-site] region=${region} bucket=${bucketName} site=${siteName}`);
+  console.log(`[deploy-site] region=${region} bucket=${bucketName}`);
 
   await ensureBucket();
   await configureCors();
   await configureLifecycle();
 
-  const entryPoint = path.resolve(process.cwd(), "remotion/index.ts");
-  const { serveUrl, siteName: deployedName } = await deploySite({
-    bucketName,
-    entryPoint,
-    region,
-    siteName,
-    options: {
-      onBundleProgress: (p) => {
-        if (p % 10 === 0) console.log(`  bundling ${p}%`);
-      },
-      onUploadProgress: ({ sizeUploaded, totalSize }) => {
-        const pct = Math.round((sizeUploaded / totalSize) * 100);
-        if (pct % 20 === 0) console.log(`  uploading ${pct}%`);
-      },
-    },
-  });
-
-  console.log(`[deploy-site] deployed "${deployedName}"`);
+  // Rendering now runs on Modal (ffmpeg), not Remotion-Lambda — this script only
+  // provisions/configures the S3 bucket that holds audio/ + renders/.
   console.log("");
-  console.log("Confirm these in your .env.local:");
-  console.log(`REMOTION_SERVE_URL=${serveUrl}`);
+  console.log("Confirm this in your .env.local:");
   console.log(`REMOTION_RENDER_BUCKET=${bucketName}`);
 }
 
