@@ -40,15 +40,26 @@ function fmtDuration(sec: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${r}s`;
 }
 
-function fmtAgo(iso: string): string {
+// Absolute date+time plus a relative hint, so "when was this made" is obvious at
+// a glance — e.g. "Jul 1, 12:26 PM · 2h ago".
+function fmtWhen(iso: string): string {
   const then = new Date(iso);
   const mins = Math.round((Date.now() - then.getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  // Older than a day → show the calendar date instead of a coarse "Nd ago".
-  return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const rel =
+    mins < 1
+      ? "just now"
+      : mins < 60
+        ? `${mins}m ago`
+        : mins < 1440
+          ? `${Math.round(mins / 60)}h ago`
+          : `${Math.round(mins / 1440)}d ago`;
+  const abs = then.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${abs} · ${rel}`;
 }
 
 export function RenderPanel() {
@@ -112,7 +123,7 @@ export function RenderPanel() {
               updateRender(r.renderId, {
                 status: "error",
                 finishedAt: Date.now(),
-                error: p.errors?.[0]?.message ?? "Render failed on Lambda",
+                error: p.errors?.[0]?.message ?? "Render failed on Modal",
               });
               return;
             }
@@ -293,7 +304,7 @@ export function RenderPanel() {
         )}
       </div>
 
-      {/* 7-day history from S3 */}
+      {/* 7-day history from S3 — the one list of renders */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -317,7 +328,7 @@ export function RenderPanel() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {fmtAgo(item.createdAt)} · {item.sizeMB} MB
+                    {fmtWhen(item.createdAt)} · {item.sizeMB} MB
                   </p>
                 </div>
                 <div className="flex items-center gap-1">

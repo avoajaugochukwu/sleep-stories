@@ -16,7 +16,7 @@ export default function RenderPage() {
             Drift it into <span className="text-aurora italic">a moving night.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-            We render your scenes over the narration on AWS Lambda — soft crossfades,
+            We render your scenes over the narration on Modal — soft crossfades,
             slow stars, fog, light and film grain — and hand you a finished MP4.
           </p>
         </div>
