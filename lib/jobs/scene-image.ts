@@ -1,11 +1,10 @@
 import type { Scene } from "@/lib/types";
 import { IMAGE_GENERATION_SUFFIX } from "@/lib/prompts/all-prompts";
 
-// Self-hosted Qwen/Z-Image gen on Modal (scale-to-zero, async submit->poll).
+// Self-hosted Krea-2-Turbo gen on Modal (scale-to-zero, async submit->poll).
+// `style:"cartoon"` applies the cartoon LoRA; the endpoint renders the prompt VERBATIM.
 const IMAGE_API_BASE =
   "https://avoajaugochukwu--open-source-image-gen-web.modal.run";
-const NEGATIVE_PROMPT =
-  "border, frame, margin, white edges, paper border, deckle edge, vignette, oversaturated, garish, neon, overly vivid colors, anime, manga, cel shaded, flat color, photograph, photorealistic, 3d render, cgi, oil painting, realistic painting, neon lights, glowing lasers, low quality, jpeg artifacts, deformed, extra limbs, mutated hands, scary, jarring, violent, gore, blood, nsfw, nudity, explicit";
 
 // Cold starts can take ~40s; warm jobs ~10s. Poll generously.
 const POLL_INTERVAL_MS = 3000;
@@ -43,10 +42,9 @@ export async function generateSceneImage(
     headers,
     body: JSON.stringify({
       prompt: styledPrompt.slice(0, 2000),
+      style: "cartoon", // cartoon LoRA; endpoint renders the prompt verbatim
       aspect_ratio: "16:9",
-      quality: "max",
-      scale: 1, // 1344×768 source for the 1920×1080 render (was 4 for the 4K trial)
-      negative_prompt: NEGATIVE_PROMPT,
+      scale: 1, // 1344×768 source for the 1920×1080 render
     }),
   });
   if (!submit.ok)

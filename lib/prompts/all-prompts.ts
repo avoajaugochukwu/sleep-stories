@@ -3,10 +3,13 @@
 // ============================================================================
 
 /**
- * Suffix appended to every scene image prompt to enforce the Sleep Stories
- * aesthetic: a hand-drawn ink-and-watercolour illustration with a restrained,
- * muted natural palette (not garish), rendered full-bleed. Written as natural
- * language for Z-Image instruction-following.
+ * Art-style suffix appended app-side to every SUBJECT-ONLY scene prompt. This is
+ * the concluded "recipe D" vivid inked-storybook style, rendered VERBATIM by the
+ * Krea-2 `cartoon` endpoint (the cartoon LoRA supplies the ink+wash texture; the
+ * suffix unlocks bold saturated colour). The scene-writer LLM must NOT add any
+ * style/medium/colour words — they come from here.
+ *
+ * Source of truth: open/krea2-style-presets.md — keep in sync.
  */
 export const IMAGE_GENERATION_SUFFIX =
-  "A hand-drawn ink-and-watercolour illustration, bold confident black ink outlines with fine crosshatching and stippling, painted over with soft watercolour washes; a restrained, naturalistic palette of muted earthy tones — slate blues, soft greens, warm ochres and dusty russets — gentle warm-and-cool contrast with a soft glow from the main light source; soft cinematic chiaroscuro, dreamy and calming mood, balanced storybook composition; full-bleed 16:9 — the artwork extends past all four edges of the canvas with absolutely no border, no frame, no white margin, no matte and no rounded corners.";
+  "Detailed hand-drawn ink illustration, fine cross-hatched ink linework, layered rich painted colour, warm-and-cool light, intricate storybook detail, painterly, atmospheric, cinematic composition, full-bleed 16:9, bold vivid saturated colours, inked storybook style";

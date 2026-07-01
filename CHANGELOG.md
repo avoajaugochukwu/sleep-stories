@@ -3,6 +3,23 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-07-01
+
+- **Image gen → Krea-2 `cartoon` style + recipe-D suffix + subject-only writer.**
+  The image service (same URL) now runs Krea-2-Turbo and renders the prompt
+  **verbatim**; the cartoon LoRA is selected with a new `style:"cartoon"` field.
+  `scene-image.ts` now sends `{ prompt, style:"cartoon", aspect_ratio:"16:9", scale:1 }`
+  and **drops** the Z-Image-era `quality:"max"` and `negative_prompt` (both inert on
+  Krea-2). Replaced `IMAGE_GENERATION_SUFFIX` (`lib/prompts/all-prompts.ts`) with the
+  concluded **recipe-D** vivid inked-storybook string (source of truth:
+  `open/krea2-style-presets.md` — keep in sync). Retuned the scene-writer persona
+  (`lib/scene-engine/sleep-scene-prompt.ts`) to output **SUBJECT-ONLY**
+  descriptions: removed all medium/colour wording (the "ink-and-watercolour",
+  "richly coloured", "muted earthy palette" rules) since the AI's own style words
+  fought the app-side suffix; it now describes only subject/setting/mood/period.
+  Server-side only (worker + `/api/generate/scene-image`) → no `deploy:site`; takes
+  effect on the next `railway up`.
+
 ## 2026-06-29
 
 - **Image aesthetic → richly coloured ink-and-watercolour.** Swapped
