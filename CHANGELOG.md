@@ -5,6 +5,35 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-01
 
+- **Consolidated to our OWN bucket `sleep-stories-media` (us-west-2); deleted the
+  old remotion bucket.** Renders were landing in the *shared*
+  `open-source-image-generation` bucket and audio in the remotion-named
+  `remotionlambda-uswest2-sleepstories` — messy and mixed with other projects.
+  Now one dedicated bucket holds `audio/` (uploads) + `renders/<id>/<slug>.mp4`
+  (Modal output), public-read + CORS + 7-day lifecycle on both (provisioned by
+  `deploy:site`). Changes: Modal `render-modal/modal_app.py` writes to
+  `SLEEP_RENDER_BUCKET` (default `sleep-stories-media`) under `renders/` (redeployed);
+  `lib/aws/s3.ts` lists/deletes `renders/` from `renderBucket()` (dropped the
+  interim `renderOutputBucket`/`generations/` shim); `REMOTION_RENDER_BUCKET`
+  → `sleep-stories-media` in `.env.local` + Railway. Added a bucket policy
+  granting account `664991373499` write/list (so Modal's creds can PUT regardless
+  of IAM scoping). Migrated only the latest good render; deleted our
+  `generations/sleep-stories/` prefix from the shared bucket (bucket kept) and
+  **deleted the `remotionlambda-uswest2-sleepstories` bucket**. Verified
+  end-to-end with a 1-scene render that wrote to `sleep-stories-media/renders/`.
+
+- **"Recent renders" was listing the wrong bucket — finished Modal renders were
+  invisible.** Symptom: a render completes fine but never shows on `/render`, so
+  it looks like it failed / "render another take" with nothing there. Cause:
+  `listRecentRenders`/`deleteRenderObject` read `REMOTION_RENDER_BUCKET` under
+  `renders/` (the old Lambda output), but **Modal writes to a different bucket**,
+  `open-source-image-generation`, key `generations/sleep-stories/<id>/<slug>.mp4`.
+  Fix (`lib/aws/s3.ts`): new `renderOutputBucket()` (env `RENDER_OUTPUT_BUCKET`,
+  default `open-source-image-generation`) + prefix `generations/sleep-stories/`;
+  the 2-segment key regex excludes the `<id>/clips/*` scene clips. Audio uploads
+  still use `renderBucket()`. NOTE: that bucket has **no 7-day lifecycle** on this
+  prefix, so ~1 GB renders accumulate — add one if cost matters.
+
 - **Removed AWS Lambda + Remotion entirely — rendering is Modal-only now.**
   Rendering already went through Modal (`lib/render/modal.ts`, ffmpeg in
   `render-modal/modal_app.py`); Lambda + the Remotion composition were dead weight

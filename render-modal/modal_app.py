@@ -328,7 +328,7 @@ def assemble(render_id, clip_keys, bucket, tmp_prefix, audio_url, audio_dur, sou
              "-map", "0:v:0", "-map", "1:a:0", "-t", str(audio_dur),
              "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-shortest", final])
 
-    key = f"generations/sleep-stories/{render_id}/{_slug(title)}.mp4"
+    key = f"renders/{render_id}/{_slug(title)}.mp4"
     s3.upload_file(final, bucket, key, ExtraArgs={"ContentType": "video/mp4"})
     s3.delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": k} for k in clip_keys]})
     return {"key": key, "size_mb": round(os.path.getsize(final) / 1e6, 1),
@@ -338,8 +338,10 @@ def assemble(render_id, clip_keys, bucket, tmp_prefix, audio_url, audio_dur, sou
 @app.function(secrets=[secret], timeout=3600)
 def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title):
     t0 = time.time()
-    bucket = os.environ["AWS_S3_BUCKET_NAME"]
-    tmp_prefix = f"generations/sleep-stories/{render_id}/clips"
+    # Sleep-stories' OWN bucket (audio/ + renders/, 7-day lifecycle). Not the
+    # shared image-gen bucket — override via SLEEP_RENDER_BUCKET if it ever moves.
+    bucket = os.environ.get("SLEEP_RENDER_BUCKET", "sleep-stories-media")
+    tmp_prefix = f"renders/{render_id}/clips"
     _set(render_id, started=t0, done=False, progress=0.0, output=None, error=None,
          n=len(scenes), scene_core_sec=0.0)
 

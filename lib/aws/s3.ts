@@ -10,9 +10,9 @@ import { randomUUID } from "crypto";
 export const awsRegion = process.env.AWS_REGION ?? "us-west-2";
 
 /**
- * Bucket used for both audio uploads (under audio/) and the rendered videos.
- * It's the Remotion bucket created by `deploy:site` in our region — separate
- * from the production stack's bucket because that lives in a different region.
+ * Our OWN dedicated bucket (`sleep-stories-media`), holding both audio uploads
+ * (`audio/`) and Modal's finished videos (`renders/<id>/<slug>.mp4`) — 7-day
+ * lifecycle on both. Provisioned by `npm run deploy:site`.
  */
 export function renderBucket(): string {
   const bucket = process.env.REMOTION_RENDER_BUCKET;
@@ -23,6 +23,11 @@ export function renderBucket(): string {
   }
   return bucket;
 }
+
+const RENDER_PREFIX = "renders/";
+// renders/<renderId>/<file>.mp4 — the 2-segment shape excludes the per-scene
+// clips at renders/<renderId>/clips/clipNNNN.mp4.
+const RENDER_KEY_RE = /^renders\/([^/]+)\/([^/]+\.mp4)$/;
 
 let _client: S3Client | null = null;
 export function s3(): S3Client {
@@ -61,14 +66,13 @@ export async function listRecentRenders(): Promise<RenderListing[]> {
     const res = await s3().send(
       new ListObjectsV2Command({
         Bucket: bucket,
-        Prefix: "renders/",
+        Prefix: RENDER_PREFIX,
         ContinuationToken: token,
       }),
     );
     for (const obj of res.Contents ?? []) {
       if (!obj.Key || !obj.LastModified) continue;
-      // renders/<renderId>/<file>.mp4
-      const m = obj.Key.match(/^renders\/([^/]+)\/([^/]+\.mp4)$/);
+      const m = obj.Key.match(RENDER_KEY_RE);
       if (!m) continue;
       if (obj.LastModified.getTime() < cutoff) continue;
       out.push({
@@ -138,7 +142,7 @@ export async function presignAudioUpload(
 
 /** Delete a finished render's mp4 (used by the "discard this take" button). */
 export async function deleteRenderObject(key: string): Promise<void> {
-  if (!/^renders\/[^/]+\/[^/]+\.mp4$/.test(key)) {
+  if (!RENDER_KEY_RE.test(key)) {
     throw new Error("Refusing to delete unexpected key");
   }
   await s3().send(

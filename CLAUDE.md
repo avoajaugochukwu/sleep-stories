@@ -33,12 +33,16 @@ how we avoid relearning the same failures.
 - Region **us-west-2**. We now only use **S3** here (no Lambda). The
   remotion-test-2 **prod Lambda stack shares this account** — leave its
   `remotion-render-…disk10240mb…` functions alone.
-- Our **own dedicated bucket** `remotionlambda-uswest2-sleepstories` — nothing
-  shared with prod. Holds `audio/` (uploads) + `renders/` (Modal output);
-  7-day lifecycle on both. (Name starts `remotionlambda-` for historical reasons;
-  it's just our S3 bucket now.) Provisioned by `npm run deploy:site`.
-- `REMOTION_RENDER_BUCKET` (= that bucket) is passed explicitly on S3 ops since
-  two `remotionlambda-…` buckets exist in the region.
+- Our **own dedicated bucket** `sleep-stories-media` — holds `audio/` (uploads)
+  + `renders/<id>/<slug>.mp4` (Modal output), public-read + CORS + 7-day
+  lifecycle on both. Provisioned by `npm run deploy:site` (bucket name comes from
+  `REMOTION_RENDER_BUCKET`). A bucket policy also grants the account write/list so
+  Modal's creds can PUT. **Scene images are NOT here** — they come from the shared
+  `open-source-image-generation` bucket via the image-gen Modal endpoint; don't
+  touch that bucket.
+- Modal writes renders via `SLEEP_RENDER_BUCKET` (default `sleep-stories-media`)
+  in `render-modal/modal_app.py`; the Next app reads via `REMOTION_RENDER_BUCKET`.
+  Keep the two in sync if the bucket ever moves.
 - Config + AWS keys are in `.env.local` (gitignored).
 
 ## Ingest pipeline (Baserow/ClickUp → headless render)
