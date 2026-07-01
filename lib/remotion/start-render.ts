@@ -1,10 +1,6 @@
 import type { StoryboardScene } from "@/lib/types";
-import {
-  buildSleepVideoInput,
-  SOUND_EFFECTS,
-  type SoundEffectKey,
-} from "./build-input";
-import { planStoryText } from "@/lib/scene-engine/story-text";
+import { SOUND_EFFECTS, type SoundEffectKey } from "./sound-effects";
+import { deriveStoryTitle } from "@/lib/scene-engine/story-text";
 import { startModalRender } from "@/lib/render/modal";
 
 export interface StartRenderResult {
@@ -16,15 +12,13 @@ export interface StartRenderResult {
 }
 
 /**
- * Derive the title (one Claude call via planStoryText) and kick the cheap Modal
- * ffmpeg render. Shared by the interactive route (app/api/render/start) and the
- * background worker (lib/jobs/worker) so both produce identical renders.
+ * Derive the title (one Claude call, or the caller's own) and kick the cheap
+ * Modal ffmpeg render. Shared by the interactive route (app/api/render/start)
+ * and the background worker (lib/jobs/worker) so both produce identical renders.
  *
- * ponytail: Modal composites the whole video itself (overlays, stars, grain,
- * captions, title) from the raw scenes — we only still build the Remotion input
- * + run planStoryText to get the AI title. The textOverlays it returns are
- * unused (Modal makes its own captions); drop build-input/planStoryText here if
- * a plain title (job name / first line) is ever good enough.
+ * Modal composites the whole video itself (timing, crossfades, overlays, stars,
+ * grain, captions, title card) from the raw scenes + audio — so all this side
+ * does is pick a title and hand off.
  */
 export async function startRenderForScenes(opts: {
   scenes: StoryboardScene[];
@@ -50,24 +44,8 @@ export async function startRenderForScenes(opts: {
       ? (soundEffect as SoundEffectKey | "none")
       : "fire";
 
-  const input = buildSleepVideoInput({
-    scenes,
-    audioUrl,
-    audioDurationSec,
-    soundEffect: soundEffectKey,
-  });
-
-  // Prefer a caller-supplied title (ClickUp task name); only ask Claude otherwise.
-  const title =
-    opts.title?.trim() ||
-    (
-      await planStoryText({
-        renderScenes: input.scenes,
-        storyboard: scenes,
-        fps: input.fps,
-        totalFrames: input.durationInFrames,
-      })
-    ).title;
+  // Prefer a caller-supplied title (ClickUp task name); only ask the model otherwise.
+  const title = opts.title?.trim() || (await deriveStoryTitle(scenes));
 
   const start = await startModalRender({
     scenes,

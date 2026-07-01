@@ -415,7 +415,8 @@ def web():
         title = body.get("title") or "A Quiet Night"
         driver.spawn(rid, scenes, body["audioUrl"], body["audioDurationSec"],
                      body.get("soundEffect", "fire"), title)
-        return {"renderId": rid, "bucketName": os.environ["AWS_S3_BUCKET_NAME"],
+        return {"renderId": rid,
+                "bucketName": os.environ.get("SLEEP_RENDER_BUCKET", "sleep-stories-media"),
                 "title": title, "durationInFrames": round(body["audioDurationSec"] * FPS),
                 "sceneCount": len(scenes)}
 

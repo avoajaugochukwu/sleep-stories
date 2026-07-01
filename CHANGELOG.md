@@ -5,6 +5,19 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-01
 
+- **Deleted dead render-input code — Modal already composites everything.** The
+  app still ran `buildSleepVideoInput` (overlay schedule, caption timeline, Ken
+  Burns, dimensions, per-scene frame math) and `planStoryText` (caption
+  selection/layout), but Modal recomputes all of that in Python — only the AI
+  **title** was ever consumed. Cut `lib/remotion/build-input.ts` (→ tiny
+  `sound-effects.ts`, labels only) and `lib/remotion/types.ts`; rewrote
+  `story-text.ts` to a title-only `deriveStoryTitle` (one 64-token LLM call, was
+  2048); `start-render.ts` now just validates the sound key, picks a title, and
+  hands off. ~500 lines gone, behaviour identical. Also: Modal `/render/start`
+  now reports the real output bucket in `bucketName`; removed dead
+  `REMOTION_SITE_NAME`/`_COMPOSITION_ID`/`_LAMBDA_FUNCTION_NAME`/`_SERVE_URL` env
+  keys (`.env.local` + Railway).
+
 - **Consolidated to our OWN bucket `sleep-stories-media` (us-west-2); deleted the
   old remotion bucket.** Renders were landing in the *shared*
   `open-source-image-generation` bucket and audio in the remotion-named

@@ -96,9 +96,9 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 
 - `render-modal/` — the Modal ffmpeg renderer (Python) that composites the video.
 - `lib/render/modal.ts` — HTTP client for the Modal renderer (start + poll).
-- `lib/remotion/` — input builder + shared types; `start-render.ts` is the shared
-  "build input + plan title + kick Modal" core (UI route + worker). (Dir keeps its
-  old name; it no longer depends on any `remotion` package.)
+- `lib/remotion/` — `start-render.ts` (pick a title + kick Modal, shared by UI
+  route + worker) and `sound-effects.ts` (the ambient-bed labels). Dir keeps its
+  old name but no longer touches Remotion — Modal does all compositing.
 - `lib/jobs/` — ingest worker, Turso store, ClickUp/Baserow clients, board config.
 - `app/api/render/*` — start a render + poll progress; `app/api/renders` lists the
   last 7 days from our bucket.
