@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { z } from 'zod';
-import { openai, DEFAULT_MODEL } from '@/lib/ai/openai';
+import { openai, modelParams } from '@/lib/ai/openai';
 import {
   splitIntoChunks,
   normalizeScript,
@@ -146,9 +146,8 @@ async function generateForChunk(
   let raw: unknown;
   try {
     const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
+      ...modelParams(0.7),
       max_completion_tokens: 8192,
-      temperature: 0.7,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -238,9 +237,10 @@ export async function breakdownScript(
   let globalContext: string | undefined;
   try {
     const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
-      max_completion_tokens: 512,
-      temperature: 0.3,
+      ...modelParams(0.3),
+      // gpt-5 reasoning tokens count against this; keep headroom so the summary
+      // isn't starved to empty (caught by fallback, but then no global context).
+      max_completion_tokens: 2000,
       response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: GLOBAL_CONTEXT_PROMPT(normalized) }],
     });

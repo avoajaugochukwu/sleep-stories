@@ -11,7 +11,7 @@
 // ============================================================================
 
 import { z } from "zod";
-import { openai, DEFAULT_MODEL } from "@/lib/ai/openai";
+import { openai, modelParams } from "@/lib/ai/openai";
 import { toGentleLine } from "@/lib/remotion/build-input";
 import type { SleepRenderScene, StoryTextOverlay } from "@/lib/remotion/types";
 
@@ -95,9 +95,8 @@ async function callModel(
       moments: moments.map((m) => ({ id: m.id, text: m.snippet })),
     });
     const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
+      ...modelParams(0.6),
       max_completion_tokens: 2048,
-      temperature: 0.6,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
