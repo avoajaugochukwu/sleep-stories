@@ -13,7 +13,8 @@ export interface Script {
 export interface Scene {
   scene_number: number;
   script_snippet: string;
-  visual_prompt: string; // Dark, calming, photographic image concept
+  visual_prompt: string; // Cinematic photoreal image prompt (owns lighting/colour/lens)
+  negative_prompt?: string; // Period-inaccurate things to exclude for this scene's era
   duration?: number; // Estimated narration seconds for this scene (~30s target)
 }
 

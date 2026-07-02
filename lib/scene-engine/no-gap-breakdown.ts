@@ -1,10 +1,10 @@
 // ============================================================================
 // NO-GAP SCENE BREAKDOWN (ported from scene-generation-service)
 // Splits a script into contiguous chunks, has the LLM break each chunk into
-// long calming scenes with verbatim coverage, heals/closes any coverage gaps,
-// then renumbers globally. Guarantees every word of the script lands in
-// exactly one scene. Outputs oil-painting sleep image prompts (not footage
-// search queries).
+// long scenes with verbatim coverage, heals/closes any coverage gaps, then
+// renumbers globally. Guarantees every word of the script lands in exactly one
+// scene. Outputs cinematic photoreal image prompts + per-scene period-accurate
+// negatives (not footage search queries).
 // ============================================================================
 
 import { z } from 'zod';
@@ -27,13 +27,15 @@ const MIN_SCENE_DURATION = 5;
 export interface BreakdownScene {
   scene_number: number;
   script_snippet: string;
-  visual_prompt: string; // warm classical oil-painting image concept
+  visual_prompt: string; // cinematic photoreal image prompt
+  negative_prompt?: string; // period-inaccurate things to exclude
   duration: number; // seconds, derived from word count (~20s target)
 }
 
 const RawSceneSchema = z.object({
   script_snippet: z.string(),
   visual_context: z.string(),
+  negative_prompt: z.string().optional(),
 });
 const LlmResponseSchema = z.object({ scenes: z.array(RawSceneSchema) });
 type RawScene = z.infer<typeof RawSceneSchema>;
@@ -141,7 +143,7 @@ async function generateForChunk(
   globalContext: string | undefined
 ): Promise<RawScene[]> {
   const systemPrompt = buildSleepScenePersonaLayer(globalContext);
-  const userPrompt = `Break the following script chunk into calming ~20s scenes and write one warm classical oil-painting concept for each.\n\n"""\n${chunk.text}\n"""`;
+  const userPrompt = `Break the following script chunk into ~20s scenes. For each, write one elaborate cinematic photoreal image prompt and a period-accurate negative prompt.\n\n"""\n${chunk.text}\n"""`;
 
   let raw: unknown;
   try {
@@ -223,8 +225,8 @@ export interface BreakdownResult {
 }
 
 /**
- * Break a full script into gap-free, ~20s calming scenes with warm classical
- * oil-painting image prompts. Every word of the script is covered exactly once.
+ * Break a full script into gap-free, ~20s scenes with cinematic photoreal image
+ * prompts + period-accurate negatives. Every word is covered exactly once.
  */
 export async function breakdownScript(
   script: string,
@@ -269,7 +271,8 @@ export async function breakdownScript(
         script_snippet: raw.script_snippet,
         visual_prompt:
           raw.visual_context.trim() ||
-          'A serene figure resting under a quiet starlit sky, peaceful and calm',
+          'Cinematic wide shot of a lone figure gazing up at a vast starlit night sky over calm hills, cool blue moonlight, rich saturated colour, shallow depth of field',
+        negative_prompt: raw.negative_prompt?.trim() || undefined,
         duration,
       });
     }

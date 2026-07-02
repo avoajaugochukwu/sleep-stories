@@ -62,6 +62,7 @@ async function processJob(job: SleepJob): Promise<void> {
       scene_number: s.scene_number,
       script_snippet: s.script_snippet,
       visual_prompt: s.visual_prompt,
+      negative_prompt: s.negative_prompt,
       duration: s.duration,
     }));
     const total = scenes.length;

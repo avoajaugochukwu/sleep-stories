@@ -3,6 +3,32 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-07-02
+
+- **Switched scene images from cartoon → photoreal cinematic.** Dropped the
+  watercolor addendum and made each scene prompt own its film look. Deleted
+  `lib/prompts/all-prompts.ts` (`IMAGE_GENERATION_SUFFIX` — the inked-watercolor
+  suffix bolted onto every prompt). `lib/jobs/scene-image.ts` now sends
+  `style: "photo"` (was `"cartoon"`) with no suffix. Rewrote the persona layer
+  (`lib/scene-engine/sleep-scene-prompt.ts`): the LLM was *forbidden* from adding
+  style/colour/lighting; it now *must* write elaborate (45–70 word) cinematic
+  photoreal prompts with lighting, colour grade, and lens — soft/restful Deakins
+  look, not garish. Period-awareness (global summary + per-scene rule) unchanged.
+  **`style: "photo"` is assumed** — confirm against the image-gen API's real
+  style values; the Verdun test images were made with it.
+- **Dropped the "sleep/calming" framing; vivid, era-locked, negative prompts.**
+  Removed all "calming/serene/restful/sleeping-viewer" language from the scene
+  persona (`sleep-scene-prompt.ts`) — scenes are now just cinematic, not tuned
+  soft. Killed the grey/yellow/sepia bias, pushed vivid saturated colour, and
+  banned unrequested filters/overlays. Hardened period accuracy: global summary
+  now pins an exact year/decade, and added a **TECHNOLOGY PERIOD-LOCKED** rule
+  (no cars/electricity/plastic in Rome or the 1600s). Added a per-scene
+  **`negative_prompt`** the LLM writes (era-inaccurate items) — threaded through
+  `RawSceneSchema` → `BreakdownScene` → `Scene` → worker → `scene-image.ts`,
+  which appends a fixed `BASE_NEGATIVE` (quality terms) and POSTs `negative_prompt`
+  to the image endpoint. **Assumes the endpoint accepts `negative_prompt`** —
+  confirm; if it 400s on unknown fields, drop it from the body.
+
 ## 2026-07-01
 
 - **Deleted dead render-input code — Modal already composites everything.** The
