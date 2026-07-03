@@ -5,7 +5,7 @@ Renders the sleep-story video on Modal with ffmpeg instead of Remotion on Lambda
 
 ## What it renders (faithful port of remotion/SleepStory.tsx)
 Stacking order, all baked per-scene from the scene's known global frame offset:
-1. **Ken Burns** — scale 1.05↔1.16 (alt in/out per scene) + 18px vertical drift (`KenBurnsImage`)
+1. **Static image** — scaled/cropped to fill, no zoom (zoompan caused visible shake)
 2. **1.2s crossfade** between scenes (xfade from prev image)
 3. **Rotating overlay pool** — all 6 clips, screen blend, 45–150s appearances, gaps, fades, slowed (`OverlayVideos` + `scheduleOverlays`)
 4. **Stars** — faint star field (`Stars`)

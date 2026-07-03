@@ -5,7 +5,7 @@ speaks (POST /render/start, GET /render/{id}), so render-panel.tsx points here b
 the fetch base URL.
 
 Faithful port of remotion/SleepStory.tsx and its layers, in stacking order:
-  1. Ken Burns image  — scale 1.05<->1.16 (alt in/out), 18px vertical drift  (KenBurnsImage.tsx)
+  1. Static image  — scaled/cropped to fill, no Ken Burns (zoompan shake)     (KenBurnsImage.tsx)
   2. 1.2s crossfade between scenes                                            (SleepStory SceneLayer)
   3. rotating overlay pool — screen blend, 45-150s appearances, gaps, fades   (OverlayVideos + scheduleOverlays)
   4. Stars — faint star field                                                 (Stars.tsx)
@@ -46,8 +46,6 @@ FPS = 24
 W, H = 1920, 1080
 CRF = 26
 PRESET = "medium"
-ZOOM_LO, ZOOM_HI = 1.05, 1.16
-DRIFT_PX = 18                      # KenBurns vertical drift (output px); ~51 source px
 CROSSFADE_SEC = 1.2
 GRAIN = 9                          # ffmpeg temporal noise ~ GrainVignette's 6% overlay grain
 SCENE_CORES = 2
@@ -186,20 +184,9 @@ def select_captions(starts_sec, snippets, seed):
     return out
 
 
-def _zoom_expr(frames, zoom_in):
-    z = (f"1.05+{ZOOM_HI - ZOOM_LO:.3f}*on/{frames}" if zoom_in
-         else f"1.16-{ZOOM_HI - ZOOM_LO:.3f}*on/{frames}")
-    # drift opposite zoom dir, ~51 source px over the scene
-    sign = "-" if zoom_in else "+"
-    drift = f"{sign}{round(DRIFT_PX * (3072 / 1080)):d}*on/{frames}"
-    return (f"zoompan=z='{z}':d={frames}"
-            f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2){drift}':s={W}x{H}:fps={FPS}")
-
-
 def _build_filter(job):
     """Construct the per-scene filter_complex + the ordered input list."""
     dur = job["duration"]
-    frames = max(1, round(dur * FPS))
     cf = CROSSFADE_SEC
     inputs = ["-loop", "1", "-t", str(dur), "-i", job["img"]]      # 0: current image
     # 1: twinkling star loop (60s, seamless) seeked by global time -> continuous phase across scenes
@@ -217,7 +204,9 @@ def _build_filter(job):
         i_prev = idx; idx += 1
         inputs += ["-loop", "1", "-t", str(cf + 0.1), "-i", prev]
 
-    p = [f"[0:v]{_zoom_expr(frames, job['zoom_in'])},setsar=1,format=gbrp[cur]"]
+    # ponytail: static frame, no Ken Burns — zoompan's per-frame x/y rounding caused visible shake
+    p = [f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+         f"setsar=1,format=gbrp[cur]"]
     base = "cur"
     if prev:
         p.append(f"[{i_prev}:v]scale={W}:{H},fps={FPS},format=gbrp,"
@@ -358,7 +347,7 @@ def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title):
     for i, s in enumerate(scenes):
         jobs.append({
             "idx": i, "image_url": s["image_url"], "duration": s["duration"],
-            "zoom_in": i % 2 == 0, "overlay": sched[i],
+            "overlay": sched[i],
             "prev_url": scenes[i - 1]["image_url"] if i > 0 else None,
             "gstart_sec": round(starts_sec[i], 2),
             "stars_seek": round(starts_sec[i] % 60, 2),

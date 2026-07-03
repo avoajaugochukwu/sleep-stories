@@ -5,6 +5,12 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-02
 
+- **Removed Ken Burns zoom — scenes now static.** The `zoompan` per-frame x/y
+  expressions rounded to integers each frame, producing visible shake. Replaced
+  the `_zoom_expr` zoompan with a static `scale=…:force_original_aspect_ratio=increase,crop`
+  fill in `render-modal/modal_app.py`. Dropped `ZOOM_LO/ZOOM_HI/DRIFT_PX`, the
+  `_zoom_expr` fn, and the per-scene `zoom_in` flag. Redeploy the Modal app to apply.
+
 - **Switched scene images from cartoon → photoreal cinematic.** Dropped the
   watercolor addendum and made each scene prompt own its film look. Deleted
   `lib/prompts/all-prompts.ts` (`IMAGE_GENERATION_SUFFIX` — the inked-watercolor
