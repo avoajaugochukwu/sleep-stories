@@ -143,7 +143,7 @@ async function generateForChunk(
   globalContext: string | undefined
 ): Promise<RawScene[]> {
   const systemPrompt = buildSleepScenePersonaLayer(globalContext);
-  const userPrompt = `Break the following script chunk into ~20s scenes. For each, write one elaborate cinematic photoreal image prompt and a period-accurate negative prompt.\n\n"""\n${chunk.text}\n"""`;
+  const userPrompt = `Break the following script chunk into ~20s scenes. For each, write one elaborate image prompt (subject, action, setting, lighting, colour — no art-style or camera words) and a period-accurate negative prompt.\n\n"""\n${chunk.text}\n"""`;
 
   let raw: unknown;
   try {

@@ -1,10 +1,13 @@
 import type { Scene } from "@/lib/types";
 
 // Self-hosted gen on Modal (scale-to-zero, async submit->poll).
-// `style:"photo"` = photoreal cinematic; the endpoint renders the prompt VERBATIM,
-// so the full cinematic direction now lives in the scene's visual_prompt (no suffix).
+// The endpoint renders the prompt VERBATIM; STYLE_PREFIX is prepended so every
+// scene renders as a digital painting regardless of what the LLM wrote.
 const IMAGE_API_BASE =
   "https://avoajaugochukwu--open-source-image-gen-web.modal.run";
+
+// Only artistic style word we apply. LLM writes subject/action; this leads.
+const STYLE_PREFIX = "highly detailed digital painting, ";
 
 // Cold starts can take ~40s; warm jobs ~10s. Poll generously.
 const POLL_INTERVAL_MS = 3000;
@@ -23,7 +26,7 @@ export interface GeneratedImage {
 }
 
 /**
- * Generate one photoreal cinematic 16:9 scene image via the self-hosted Modal image
+ * Generate one digital-painting 16:9 scene image via the self-hosted Modal image
  * API. Shared by the interactive route (app/api/generate/scene-image) and the
  * background worker. Throws on failure so callers decide how to retry/skip.
  */
@@ -38,8 +41,9 @@ export async function generateSceneImage(
   };
 
   const prompt =
-    scene.visual_prompt ||
-    "Cinematic wide shot of a lone figure gazing up at a vast starlit night sky over calm hills, cool blue moonlight, rich saturated colour, shallow depth of field";
+    STYLE_PREFIX +
+    (scene.visual_prompt ||
+      "a lone figure gazing up at a vast starlit night sky over calm hills, cool blue moonlight, rich saturated colour");
   const negativePrompt = [scene.negative_prompt, BASE_NEGATIVE]
     .filter(Boolean)
     .join(", ");
@@ -50,7 +54,7 @@ export async function generateSceneImage(
     body: JSON.stringify({
       prompt: prompt.slice(0, 2000),
       negative_prompt: negativePrompt.slice(0, 1000),
-      style: "photo", // photoreal cinematic; endpoint renders the prompt verbatim
+      style: "photo", // endpoint renders prompt verbatim; style word is in the prompt
       aspect_ratio: "16:9",
       scale: 1, // 1344×768 source for the 1920×1080 render
     }),

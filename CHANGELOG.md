@@ -3,6 +3,16 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-07-03
+
+- **Switched scene images from photoreal → digital painting.** Every generated
+  prompt now leads with `highly detailed digital painting, ` — the only art-style
+  word — prepended at send time via `STYLE_PREFIX` in `lib/jobs/scene-image.ts`
+  (guaranteed regardless of LLM output). Stripped all photoreal/cinematic/film/
+  camera/lens language from the LLM instructions (`lib/scene-engine/sleep-scene-prompt.ts`,
+  `no-gap-breakdown.ts`) so scenes only describe subject/action/setting/lighting/colour.
+  The `style: "photo"` API flag is unchanged (endpoint renders the prompt verbatim).
+
 ## 2026-07-02
 
 - **Removed Ken Burns zoom — scenes now static.** The `zoompan` per-frame x/y

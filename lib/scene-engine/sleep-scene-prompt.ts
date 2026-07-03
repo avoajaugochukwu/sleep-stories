@@ -1,9 +1,10 @@
 // ============================================================================
 // SCENE PERSONA LAYER
 // Per-chunk prompt that breaks a script chunk into long (~20s) scenes with full
-// verbatim coverage. Outputs elaborate, self-contained CINEMATIC PHOTOREAL image
-// prompts plus a per-scene period-accurate NEGATIVE prompt — there is no app-side
-// style suffix, so each scene must own its lighting, colour, lens, and film look.
+// verbatim coverage. Outputs elaborate, self-contained image prompts (subject,
+// action, setting, lighting, colour) plus a per-scene period-accurate NEGATIVE
+// prompt. The "highly detailed digital painting" style prefix is prepended at
+// send time (see lib/jobs/scene-image.ts), so scenes must NOT name any art style.
 // ============================================================================
 
 export const GLOBAL_CONTEXT_PROMPT = (script: string) =>
@@ -16,11 +17,11 @@ export function buildSleepScenePersonaLayer(globalContext?: string): string {
     ? `\n## NARRATIVE CONTEXT\nThis chunk is part of a larger script. Overall summary (includes the historical period and setting):\n${globalContext}\nUse it to keep every scene grounded in the video's actual topic AND its correct era and place — clothing, architecture, and objects must match that period throughout, consistently across all scenes.\n`
     : '';
 
-  return `You are a cinematographer. You break a chunk of narration into scenes and write a rich, movie-like IMAGE PROMPT for each — a photorealistic film still, fully directed (subject, period-accurate detail, setting, lighting, colour, lens). There is NO automatic style applied afterwards, so each prompt must fully describe how the shot looks.
+  return `You break a chunk of narration into scenes and write a rich IMAGE PROMPT for each — describe the subject, action, period-accurate detail, setting, lighting, and colour. The words "highly detailed digital painting" are added automatically at the start of every prompt, so do NOT name any art style, medium, camera, lens, or film look yourself — just describe what is in the scene.
 
 You will be given a chunk of script text. Your job is to:
 1. Break it into natural scenes of roughly 20 seconds each when read aloud (~40-60 words per scene; several sentences).
-2. For each scene, write a "visual_context": an elaborate, cinematic, photoreal image prompt whose subject is drawn from THAT part of the narration.
+2. For each scene, write a "visual_context": an elaborate image prompt whose subject is drawn from THAT part of the narration.
 3. For each scene, write a "negative_prompt": a short comma-separated list of things that must NOT appear, focused on period accuracy for that scene's exact era.
 
 ## SCENE BREAKING RULES
@@ -44,15 +45,15 @@ Together, all script_snippets must cover the ENTIRE input chunk with NO gaps and
 ${narrativeSection}
 ## VISUAL_CONTEXT RULES
 
-For each scene, write ONE cinematic image prompt that is:
-- **Photoreal and cinematic** — a realistic film still, as if shot on a movie camera. Always specify the LIGHTING (pick what the scene calls for — clear daylight, cool blue moonlight, soft overcast, a shaft of sun, candle or firelight — not a default), and the SHOT/LENS (wide establishing shot, shallow depth of field, soft bokeh background, slow push-in).
+For each scene, write ONE image prompt that is:
+- **Well-composed** — describe the framing plainly (wide view, close-up, the subject centered) and always specify the LIGHTING (pick what the scene calls for — clear daylight, cool blue moonlight, soft overcast, a shaft of sun, candle or firelight — not a default). Do NOT name a camera, lens, film, or art style — the digital-painting style is added automatically.
 - **Vivid, rich colour (CRITICAL)** — deeply saturated, clean, true colour: deep blues, lush greens, warm skin, vibrant fabrics. NEVER grey, desaturated, washed-out, muddy, or dull. NO yellow, amber, or sepia cast; NO teal-and-orange or "vintage" colour grade. Do NOT add filters, vignettes, film grain, haze, or overlays UNLESS the scene itself literally contains them (real fog, real candlelight, a real dust storm). The image should look bright, clear, and richly coloured.
 - **Topic-relevant** — the primary subject must come directly from the narration in that scene.
 - **PERIOD- AND PLACE-ACCURATE (CRITICAL)** — lock every scene to the exact era and place from the narrative summary. Clothing, military uniforms, armour, and architecture MUST be accurate to that specific year/decade — not a generic or nearby-era version. Uniforms and fashion change decade by decade: a 1914 soldier is not a 1944 soldier is not a 2025 soldier; 1600s Italian dress is not 1800s dress; Roman clothing is togas and tunics, not medieval robes. When in doubt, match the specific decade named in the summary.
 - **TECHNOLOGY PERIOD-LOCKED (CRITICAL)** — only technology, tools, vehicles, weapons, lighting sources, and materials that actually existed in the scene's exact era and place may appear. A Roman or 1600s scene has NO cars, electric lights, power lines, telephones, plastic, glass skyscrapers, or printed signage — only period-correct oil lamps, candles, horses, timber, and stone. A modern scene uses its real contemporary technology. Anachronistic technology is the single worst error you can make.
 - **Single clear subject** — one hero subject anchoring the frame, with clean composition and an uncluttered background.
 
-Write 45-70 words — elaborate and specific. Name the subject, the period-accurate details, the setting, the lighting, the vivid colour, and the camera/lens. Do NOT mention text, captions, watermarks, or logos.
+Write 45-70 words — elaborate and specific. Name the subject, the period-accurate details, the setting, the lighting, and the vivid colour. Do NOT name an art style, medium, camera, or lens, and do NOT mention text, captions, watermarks, or logos.
 
 ## NEGATIVE_PROMPT RULES
 
@@ -69,7 +70,7 @@ Return ONLY a JSON object (no markdown, no code fences) with this exact structur
   "scenes": [
     {
       "script_snippet": "exact verbatim text copied from the input",
-      "visual_context": "an elaborate cinematic photoreal image prompt (45-70 words): period-accurate details, setting, lighting, vivid rich colour, and lens, drawn from this part of the narration",
+      "visual_context": "an elaborate image prompt (45-70 words): subject, action, period-accurate details, setting, lighting, and vivid rich colour, drawn from this part of the narration — no art style, camera, or lens words",
       "negative_prompt": "comma-separated period-inaccurate things to exclude for this scene's exact era"
     }
   ]
