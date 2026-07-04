@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 
 // Default configuration
-export const DEFAULT_MODEL = 'gpt-5.5-2026-04-23';
+export const DEFAULT_MODEL = 'gpt-5-mini';
 export const DEFAULT_TEMPERATURE = 0.7;
 
 // GPT-5 family rejects custom `temperature` and instead takes `reasoning_effort`
