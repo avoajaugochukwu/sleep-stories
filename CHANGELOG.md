@@ -3,7 +3,47 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
-## 2026-07-03
+## 2026-07-04
+
+- **Jobs gate the render on complete images + expose the finished video.** Why:
+  a job with failed images was still rendered (wasting a render on a broken
+  video), and the dashboard only showed "Open project" so no-one could tell a
+  video was already made → re-renders. Changes:
+  - **General retry pass** (`lib/jobs/worker.ts`): after the main image loop, re-
+    attempt only the still-missing scenes, up to `GENERAL_RETRY_ROUNDS` (2). Runs
+    on a now-warm endpoint (footage-collector pattern).
+  - **Render gate**: if any image is still missing after retries, skip the render
+    and park the job in a new **`needs_images`** status with the partial project
+    saved. The user opens the project, regenerates the failures, and renders
+    manually via the existing `/render` flow.
+  - **Video download link resolved live from S3, worker never waits.** The worker
+    fires the render and marks the job ready (fire-and-forget); the finished MP4
+    lands at `renders/<renderId>/<slug>.mp4`. `GET /api/jobs` matches each ready
+    job's checkpointed renderId against `listRecentRenders()` and fills in the URL
+    on read, so the button appears once S3 has the file — no queue-blocking wait,
+    no `video_url` column. Reuses a render a prior run already kicked (renderId in
+    `project_json`) so a restart doesn't pay for a second one.
+  - **Dashboard** (`components/jobs/jobs-panel.tsx`): "Download video ↓" button on
+    ready jobs (kept "Open project"); amber `Needs images` state with Open project
+    + Retry. Hydrator (`job-hydrator.tsx`) loads the partial project for
+    `needs_images` too.
+- **Scene image gen now retries with backoff.** Symptom: on a cold Modal
+  image-gen endpoint the whole first concurrent wave (images 0–9) failed with
+  `generation timed out after 300000ms` — the containers were still loading when
+  the 5-min poll deadline hit, so 10/264 images were lost. Fix (`lib/jobs/scene-image.ts`):
+  bumped `POLL_TIMEOUT_MS` 5→6 min and wrapped the submit→poll in a 3-attempt
+  retry with exponential backoff (3s, 6s). By the retry the container is warm, so
+  the first wave recovers instead of failing. Shared by the worker + interactive
+  route (extracted `generateOnce`).
+- **Ingest jobs now resume instead of restarting from scratch.** Symptom: a
+  247-scene job sat "stuck" for a day — every Railway restart/redeploy (or a
+  dashboard visit that ran `requeueRunningJobs`) re-queued the running job and
+  `processJob` re-ran `breakdownScript` + regenerated all images from zero, so a
+  big job that outlived one process uptime never finished. Fix (`lib/jobs/worker.ts`):
+  checkpoint the `WorkflowExport` into `project_json` after the breakdown and every
+  `SAVE_EVERY` (20) images; on (re)start reuse a prior run's `scenes` +
+  `storyboardScenes` and skip scenes that already have an `image_url`. Retry/cancel
+  already preserve `project_json`, so both now continue where the work left off.
 
 - **Switched scene images from photoreal → digital painting.** Every generated
   prompt now leads with `highly detailed digital painting, ` — the only art-style

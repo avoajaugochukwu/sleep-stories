@@ -27,6 +27,42 @@ import {
 let draining = false;
 let resumed = false;
 
+// Persist storyboard progress this often (in images completed) so a restart
+// resumes instead of regenerating from scratch. Each save writes the whole
+// WorkflowExport blob, so don't do it per-image.
+// ponytail: fixed batch; lower it if restarts are frequent and images are cheap.
+const SAVE_EVERY = 20;
+
+/** Build the WorkflowExport stored as the job's project_json — written partially
+ *  during processing (the resume checkpoint) and fully once the render starts. */
+function buildJobExport(args: {
+  script: string;
+  audioUrl: string;
+  durationSec: number;
+  scenes: Scene[];
+  storyboard: StoryboardScene[];
+  renders: RenderJob[];
+}): WorkflowExport {
+  const { script, audioUrl, durationSec, scenes, storyboard, renders } = args;
+  return {
+    app: "sleep-stories",
+    version: WORKFLOW_FILE_VERSION,
+    exportedAt: new Date().toISOString(),
+    state: {
+      currentStep: 2,
+      script: {
+        content: script,
+        word_count: script.trim().split(/\s+/).length,
+        generated_at: new Date(),
+      },
+      scenes,
+      storyboardScenes: storyboard,
+      audio: { url: audioUrl, durationSec },
+      renders,
+    },
+  };
+}
+
 async function processJob(job: SleepJob): Promise<void> {
   const { taskId } = job;
   const board = boardForList(job.listId);
@@ -56,122 +92,184 @@ async function processJob(job: SleepJob): Promise<void> {
 
     if (await stopIfCancelled("before breakdown")) return;
 
-    // 1. Script -> no-gap scenes (same mapping the analyze route uses).
-    const { scenes: broken } = await breakdownScript(job.script);
-    const scenes: Scene[] = broken.map((s) => ({
-      scene_number: s.scene_number,
-      script_snippet: s.script_snippet,
-      visual_prompt: s.visual_prompt,
-      negative_prompt: s.negative_prompt,
-      duration: s.duration,
-    }));
+    // 1. Script -> no-gap scenes (same mapping the analyze route uses). Reuse a
+    //    prior run's breakdown + storyboard if we have one so a restart continues
+    //    instead of re-running the LLM and regenerating every image from scratch.
+    const prior = job.projectJson?.state;
+    let scenes: Scene[];
+    let storyboard: StoryboardScene[];
+    if (
+      prior?.scenes?.length &&
+      prior.storyboardScenes?.length === prior.scenes.length
+    ) {
+      scenes = prior.scenes;
+      storyboard = prior.storyboardScenes;
+      const have = storyboard.filter((s) => s.image_url).length;
+      console.log(`[jobs ${taskId}] resuming — ${have}/${scenes.length} images already done`);
+    } else {
+      const { scenes: broken } = await breakdownScript(job.script);
+      scenes = broken.map((s) => ({
+        scene_number: s.scene_number,
+        script_snippet: s.script_snippet,
+        visual_prompt: s.visual_prompt,
+        negative_prompt: s.negative_prompt,
+        duration: s.duration,
+      }));
+      storyboard = scenes.map((s) => ({ ...s, generation_status: "pending" }));
+      // Checkpoint the breakdown immediately: a restart before any image still
+      // resumes from here rather than re-running the (non-deterministic) LLM.
+      await updateJob(taskId, {
+        projectJson: buildJobExport({ script: job.script, audioUrl: job.audioUrl, durationSec: 0, scenes, storyboard, renders: [] }),
+      });
+    }
     const total = scenes.length;
 
     if (await stopIfCancelled("after breakdown")) return;
 
-    // 2. Generate a unique image for every scene. Bounded concurrency: firing all
-    //    N scenes at once backs up Modal's queue so the tail waits past the 5-min
-    //    poll deadline and times out (saw 170/376 fail that way). Cap in-flight
-    //    requests to Modal's container capacity instead. Per-image failures are
-    //    tolerated (the render carries the last image forward).
+    // 2. Generate an image for every scene that doesn't already have one.
+    //    Bounded concurrency: firing all N at once backs up Modal's queue so the
+    //    tail waits past the poll deadline and times out. Cap in-flight requests
+    //    to Modal's container capacity. generateSceneImage retries each image; the
+    //    general-retry rounds below are the batch-level safety net.
     // ponytail: fixed pool of CONCURRENCY workers; tune IMAGE_GEN_CONCURRENCY to Modal's max_containers.
     const CONCURRENCY = Number(process.env.IMAGE_GEN_CONCURRENCY) || 10;
-    await updateJob(taskId, { total, completed: 0, failed: 0, progress: `Generating images 0/${total}…` });
+    const audioUrl = job.audioUrl!; // guarded above
+    const filledCount = () => storyboard.filter((s) => s.image_url).length;
+    const erroredCount = () =>
+      storyboard.filter((s) => s.generation_status === "error").length;
+    const missing = () => storyboard.flatMap((s, i) => (s.image_url ? [] : [i]));
 
-    const storyboard: StoryboardScene[] = scenes.map((s) => ({
-      ...s,
-      generation_status: "pending",
-    }));
-    let done = 0;
-    let nextIndex = 0;
+    const checkpoint = (durationSec = 0, renders: RenderJob[] = []) =>
+      updateJob(taskId, {
+        projectJson: buildJobExport({ script: job.script, audioUrl, durationSec, scenes, storyboard, renders }),
+      });
 
-    const runWorker = async (): Promise<void> => {
-      while (true) {
-        const index = nextIndex++;
-        if (index >= scenes.length) return;
-        try {
-          const { image_url, prompt_used } = await generateSceneImage(scenes[index]);
-          storyboard[index] = {
-            ...storyboard[index],
-            image_url,
-            visual_prompt: prompt_used,
-            generation_status: "completed",
-            image_pool_index: index,
-          };
-        } catch (err) {
-          console.error(`[jobs ${taskId}] image ${index} failed:`, err);
-          storyboard[index] = {
-            ...storyboard[index],
-            generation_status: "error",
-            error_message: "Failed to generate image",
-          };
-        } finally {
-          done++;
-          const filled = storyboard.filter((s) => s.image_url).length;
-          void updateJob(taskId, {
-            completed: filled,
-            failed: done - filled,
-            progress: `Generating images ${done}/${total}…`,
-          });
+    const reportProgress = () =>
+      updateJob(taskId, {
+        completed: filledCount(),
+        failed: erroredCount(),
+        progress: `Generating images ${filledCount()}/${total}…`,
+      });
+
+    // Fill the given scene indices with a bounded worker pool.
+    const fillImages = async (indices: number[]): Promise<void> => {
+      let cursor = 0;
+      let sinceSave = 0;
+      const worker = async (): Promise<void> => {
+        while (true) {
+          const k = cursor++;
+          if (k >= indices.length) return;
+          const index = indices[k];
+          try {
+            const { image_url, prompt_used } = await generateSceneImage(scenes[index]);
+            storyboard[index] = {
+              ...storyboard[index],
+              image_url,
+              visual_prompt: prompt_used,
+              generation_status: "completed",
+              error_message: undefined,
+              image_pool_index: index,
+            };
+          } catch (err) {
+            console.error(`[jobs ${taskId}] image ${index} failed:`, err);
+            storyboard[index] = {
+              ...storyboard[index],
+              generation_status: "error",
+              error_message: "Failed to generate image",
+            };
+          } finally {
+            if (++sinceSave >= SAVE_EVERY) { sinceSave = 0; void checkpoint(); }
+            void reportProgress();
+          }
         }
-      }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, indices.length) }, worker));
+      await checkpoint(); // flush this pass's images
     };
 
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, scenes.length) }, runWorker),
-    );
+    await updateJob(taskId, { total, completed: filledCount(), failed: erroredCount(), progress: `Generating images ${filledCount()}/${total}…` });
+    await fillImages(missing());
+
+    // General retry: re-attempt only the still-missing images, a couple of rounds.
+    // By now the endpoint is warm, so these usually fill.
+    // ponytail: 2 rounds; bump GENERAL_RETRY_ROUNDS if failures persist.
+    const GENERAL_RETRY_ROUNDS = 2;
+    for (let round = 1; round <= GENERAL_RETRY_ROUNDS && missing().length > 0; round++) {
+      if (await stopIfCancelled(`before retry ${round}`)) return;
+      const gaps = missing();
+      await updateJob(taskId, { progress: `Retrying ${gaps.length} image(s) (round ${round}/${GENERAL_RETRY_ROUNDS})…` });
+      await fillImages(gaps);
+    }
 
     if (await stopIfCancelled("after images")) return;
 
-    // 3. Audio duration (server-side — no <audio> element here).
-    await updateJob(taskId, { progress: "Reading audio duration…" });
-    const durationSec = await getAudioDurationSec(job.audioUrl);
+    // 3. Gate: never render on top of missing images — that wastes a render on a
+    //    broken video. Park the job so the user fixes the images in the project
+    //    and renders manually.
+    const gaps = missing().length;
+    if (gaps > 0) {
+      await updateJob(taskId, {
+        status: "needs_images",
+        projectJson: buildJobExport({ script: job.script, audioUrl, durationSec: 0, scenes, storyboard, renders: [] }),
+        completed: total - gaps,
+        failed: gaps,
+        progress: `${gaps} image(s) failed after retries — open project to fix & render`,
+        error: null,
+      });
+      console.warn(`[jobs ${taskId}] needs_images: ${gaps}/${total} missing — render skipped`);
+      return; // leave ClickUp in-progress; not done.
+    }
 
-    // 4. Kick the Lambda render.
-    await updateJob(taskId, { progress: "Starting render…" });
-    const render = await startRenderForScenes({
-      scenes: storyboard,
-      audioUrl: job.audioUrl,
-      audioDurationSec: durationSec,
-      title: job.name === "Untitled" ? undefined : job.name,
+    // 4. Audio duration (server-side — no <audio> element here).
+    await updateJob(taskId, { progress: "Reading audio duration…" });
+    const durationSec = await getAudioDurationSec(audioUrl);
+
+    // 5. Kick the render (fire-and-forget). Reuse a render a prior run already
+    //    started (its id is checkpointed in projectJson) so a restart doesn't pay
+    //    for a second one. We do NOT wait for it — the finished MP4 lands in S3 at
+    //    renders/<renderId>/<slug>.mp4, and the dashboard resolves the download
+    //    link from that id on read (see app/api/jobs). Keeps the worker free for
+    //    the next job.
+    const priorRender = job.projectJson?.state?.renders?.[0];
+    let renderJob: RenderJob;
+    if (priorRender?.renderId) {
+      renderJob = priorRender;
+      console.log(`[jobs ${taskId}] reusing render ${priorRender.renderId}`);
+    } else {
+      await updateJob(taskId, { progress: "Starting render…" });
+      const render = await startRenderForScenes({
+        scenes: storyboard,
+        audioUrl,
+        audioDurationSec: durationSec,
+        title: job.name === "Untitled" ? undefined : job.name,
+      });
+      renderJob = {
+        renderId: render.renderId,
+        bucketName: render.bucketName,
+        title: render.title,
+        createdAt: Date.now(),
+        status: "rendering",
+        progress: 0,
+      };
+    }
+
+    // 6. Store the finished WorkflowExport + render id — the UI hydrates the
+    //    project verbatim, and the dashboard finds the video from the render id.
+    const projectJson = buildJobExport({
+      script: job.script,
+      audioUrl,
+      durationSec,
+      scenes,
+      storyboard,
+      renders: [renderJob],
     });
 
-    const renderJob: RenderJob = {
-      renderId: render.renderId,
-      bucketName: render.bucketName,
-      title: render.title,
-      createdAt: Date.now(),
-      status: "rendering",
-      progress: 0,
-    };
-
-    // 5. Store the finished WorkflowExport — the UI hydrates this verbatim, so
-    //    images + audio persist for re-render and thumbnail picking.
-    const projectJson: WorkflowExport = {
-      app: "sleep-stories",
-      version: WORKFLOW_FILE_VERSION,
-      exportedAt: new Date().toISOString(),
-      state: {
-        currentStep: 2,
-        script: {
-          content: job.script,
-          word_count: job.script.trim().split(/\s+/).length,
-          generated_at: new Date(),
-        },
-        scenes,
-        storyboardScenes: storyboard,
-        audio: { url: job.audioUrl, durationSec },
-        renders: [renderJob],
-      },
-    };
-
-    const filled = storyboard.filter((s) => s.image_url).length;
     await updateJob(taskId, {
       status: "ready",
       projectJson,
-      completed: filled,
-      failed: total - filled,
-      progress: `Ready — render started (${filled}/${total} images)`,
+      completed: total,
+      failed: 0,
+      progress: `Ready — render started (${total}/${total} images)`,
       error: null,
     });
 
@@ -191,7 +289,7 @@ async function processJob(job: SleepJob): Promise<void> {
       }
     }
 
-    console.log(`[jobs ${taskId}] ready — render ${render.renderId} (${filled}/${total} images)`);
+    console.log(`[jobs ${taskId}] ready — render ${renderJob.renderId} (${total}/${total} images)`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[jobs ${taskId}] failed:`, message);

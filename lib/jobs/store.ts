@@ -17,7 +17,13 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN!,
 });
 
-export type JobStatus = "queued" | "running" | "ready" | "failed" | "cancelled";
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "ready"
+  | "failed"
+  | "cancelled"
+  | "needs_images"; // images still missing after retries — render skipped, user fixes in project
 
 export interface SleepJob {
   taskId: string;

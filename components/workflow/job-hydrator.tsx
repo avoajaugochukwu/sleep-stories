@@ -6,7 +6,7 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { parseWorkflowFile, applyWorkflow } from "@/lib/utils/workflow-io";
 
 type JobState = {
-  status: "queued" | "running" | "ready" | "failed";
+  status: "queued" | "running" | "ready" | "failed" | "needs_images";
   progress: string | null;
   error: string | null;
   projectJson: unknown;
@@ -39,7 +39,13 @@ export function JobHydrator() {
         if (!alive) return;
         setState(job);
 
-        if (job.status === "ready" && job.projectJson && !appliedRef.current) {
+        // needs_images also carries a project (partial storyboard) so the user
+        // can fix the failed images and render manually.
+        if (
+          (job.status === "ready" || job.status === "needs_images") &&
+          job.projectJson &&
+          !appliedRef.current
+        ) {
           appliedRef.current = true;
           const { state: ws } = parseWorkflowFile(JSON.stringify(job.projectJson));
           applyWorkflow(ws);
@@ -64,13 +70,15 @@ export function JobHydrator() {
   const tone =
     state.status === "failed"
       ? "border-destructive/40 text-destructive"
-      : state.status === "ready"
-        ? "border-success/40 text-success"
-        : "border-border/70 text-muted-foreground";
+      : state.status === "needs_images"
+        ? "border-amber-500/40 text-amber-500"
+        : state.status === "ready"
+          ? "border-success/40 text-success"
+          : "border-border/70 text-muted-foreground";
 
   return (
     <div className={`glass-card flex items-center gap-3 p-4 text-sm ${tone}`}>
-      {state.status === "failed" ? (
+      {state.status === "failed" || state.status === "needs_images" ? (
         <AlertCircle className="h-5 w-5 shrink-0" />
       ) : state.status === "ready" ? (
         <CheckCircle2 className="h-5 w-5 shrink-0" />
@@ -80,9 +88,11 @@ export function JobHydrator() {
       <span>
         {state.status === "failed"
           ? `Prebake failed — ${state.error ?? "unknown error"}`
-          : state.status === "ready"
-            ? "Loaded the prebaked workflow — scenes, images and render are ready below."
-            : state.progress ?? "Processing…"}
+          : state.status === "needs_images"
+            ? "Some images failed — regenerate the missing ones below, then render the full video."
+            : state.status === "ready"
+              ? "Loaded the prebaked workflow — scenes, images and render are ready below."
+              : state.progress ?? "Processing…"}
       </span>
     </div>
   );

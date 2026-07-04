@@ -8,6 +8,7 @@ import {
 import { ensureResumed } from "@/lib/jobs/worker";
 import { clickupTaskUrl, getClickupState } from "@/lib/jobs/clickup";
 import { STATUS_COMPLETE, boardForList } from "@/lib/jobs/config";
+import { listRecentRenders } from "@/lib/aws/s3";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,21 +65,38 @@ export async function GET() {
     shown.push(job);
   }
 
-  const summary = shown.map((j) => ({
-    taskId: j.taskId,
-    channel: boardForList(j.listId)?.label ?? j.listName ?? null,
-    name: j.name,
-    status: j.status,
-    progress: j.progress,
-    total: j.total,
-    completed: j.completed,
-    failed: j.failed,
-    error: j.error,
-    clickupStatus: j.clickupStatus,
-    clickupUrl: clickupTaskUrl(j.taskId),
-    url: `/scenes?job=${j.taskId}`,
-    updatedAt: j.updatedAt,
-  }));
+  // Resolve download links live: match each ready job's render id to the finished
+  // MP4 in S3 (keyed renders/<renderId>/…mp4). Read-side only — the worker never
+  // waits on the render, so the button just appears once the file exists.
+  let renderUrlById = new Map<string, string>();
+  if (shown.some((j) => j.status === "ready")) {
+    try {
+      const renders = await listRecentRenders();
+      renderUrlById = new Map(renders.map((r) => [r.renderId, r.url]));
+    } catch (err) {
+      console.error("[jobs] listRecentRenders failed:", err);
+    }
+  }
+
+  const summary = shown.map((j) => {
+    const renderId = j.projectJson?.state?.renders?.[0]?.renderId;
+    return {
+      taskId: j.taskId,
+      channel: boardForList(j.listId)?.label ?? j.listName ?? null,
+      name: j.name,
+      status: j.status,
+      progress: j.progress,
+      total: j.total,
+      completed: j.completed,
+      failed: j.failed,
+      error: j.error,
+      videoUrl: renderId ? renderUrlById.get(renderId) ?? null : null,
+      clickupStatus: j.clickupStatus,
+      clickupUrl: clickupTaskUrl(j.taskId),
+      url: `/scenes?job=${j.taskId}`,
+      updatedAt: j.updatedAt,
+    };
+  });
 
   return NextResponse.json({ jobs: summary, count: summary.length });
 }

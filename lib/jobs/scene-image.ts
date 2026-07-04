@@ -9,9 +9,16 @@ const IMAGE_API_BASE =
 // Only artistic style word we apply. LLM writes subject/action; this leads.
 const STYLE_PREFIX = "highly detailed digital painting, ";
 
-// Cold starts can take ~40s; warm jobs ~10s. Poll generously.
+// Cold starts can take ~40s; warm jobs ~10s. Poll generously, and retry so the
+// first wave — which hits a cold GPU and can blow the deadline — recovers on a
+// now-warm container instead of failing (saw the whole first batch of 10 time
+// out that way).
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+const POLL_TIMEOUT_MS = 6 * 60 * 1000; // modest bump from 5 min; retries cover the rest
+const MAX_ATTEMPTS = 3; // per image, incl. the first try
+const RETRY_BACKOFF_MS = 3000; // exponential between attempts: 3s, 6s
+// ponytail: worst case per image ≈ MAX_ATTEMPTS × POLL_TIMEOUT_MS if the endpoint
+// is truly down; the worker tolerates a final failure and carries the last image.
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -48,6 +55,28 @@ export async function generateSceneImage(
     .filter(Boolean)
     .join(", ");
 
+  // Retry with exponential backoff: a cold-start timeout on the first attempt
+  // almost always succeeds on the next (the container is warm by then).
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await generateOnce(headers, prompt, negativePrompt);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(RETRY_BACKOFF_MS * 2 ** (attempt - 1));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/** One submit->poll attempt. Throws on failure so the caller can retry. */
+async function generateOnce(
+  headers: Record<string, string>,
+  prompt: string,
+  negativePrompt: string,
+): Promise<GeneratedImage> {
   const submit = await fetch(`${IMAGE_API_BASE}/generate`, {
     method: "POST",
     headers,

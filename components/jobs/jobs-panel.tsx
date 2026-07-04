@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-type JobStatus = "queued" | "running" | "ready" | "failed" | "cancelled";
+type JobStatus = "queued" | "running" | "ready" | "failed" | "cancelled" | "needs_images";
 
 interface JobSummary {
   taskId: string;
@@ -15,6 +15,7 @@ interface JobSummary {
   completed: number;
   failed: number;
   error: string | null;
+  videoUrl: string | null;
   clickupUrl: string;
   url: string;
   updatedAt: string;
@@ -24,11 +25,12 @@ const BADGE: Record<JobStatus, { dot: string; text: string; bar: string; label: 
   queued: { dot: "bg-muted-foreground/60", text: "text-muted-foreground", bar: "bg-muted-foreground/50", label: "Queued" },
   running: { dot: "bg-primary animate-pulse", text: "text-primary", bar: "bg-primary", label: "Running" },
   ready: { dot: "bg-success", text: "text-success", bar: "bg-success", label: "Ready" },
+  needs_images: { dot: "bg-amber-500", text: "text-amber-500", bar: "bg-amber-500", label: "Needs images" },
   failed: { dot: "bg-destructive", text: "text-destructive", bar: "bg-destructive", label: "Failed" },
   cancelled: { dot: "bg-muted-foreground/60", text: "text-muted-foreground", bar: "bg-muted-foreground/50", label: "Cancelled" },
 };
 
-const ORDER: JobStatus[] = ["running", "queued", "ready", "failed", "cancelled"];
+const ORDER: JobStatus[] = ["running", "queued", "needs_images", "ready", "failed", "cancelled"];
 
 function relTime(iso: string): string {
   const t = Date.parse(iso.replace(" ", "T") + "Z");
@@ -96,13 +98,23 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {job.status === "ready" && (
+            {(job.status === "ready" || job.status === "needs_images") && (
               <Link
                 href={job.url}
                 className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
               >
                 Open project →
               </Link>
+            )}
+            {job.status === "ready" && job.videoUrl && (
+              <a
+                href={job.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-success/50 px-3 py-1.5 text-xs font-semibold text-success hover:bg-success/10"
+              >
+                Download video ↓
+              </a>
             )}
             {active && (
               <button
@@ -113,7 +125,7 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
                 {busy ? "…" : "Cancel"}
               </button>
             )}
-            {(job.status === "failed" || job.status === "cancelled") && (
+            {(job.status === "failed" || job.status === "cancelled" || job.status === "needs_images") && (
               <button
                 disabled={busy}
                 onClick={act("retry")}
