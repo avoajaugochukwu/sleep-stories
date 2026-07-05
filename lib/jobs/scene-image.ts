@@ -24,8 +24,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Fixed quality negatives appended to every scene's period-specific negative.
 // ponytail: constant, not LLM-generated — these never vary by scene.
+// SFW hard ban leads: this is YouTube. No NSFW/gore ever reaches the generator,
+// regardless of what the LLM wrote — the negative prompt is the last gate.
+const SFW_NEGATIVE =
+  "nsfw, nude, nudity, naked, sexual, sexually explicit, sex, erotic, porn, suggestive, cleavage, lingerie, fetish, gore, gory, blood, bloody, open wound, wounds, injury, mutilation, dismemberment, corpse, dead body, viscera, guts, decapitation, violence, graphic violence, disturbing, horror";
 const BASE_NEGATIVE =
-  "text, caption, watermark, logo, signature, blurry, lowres, deformed hands, extra fingers, distorted anatomy, oversaturated, grainy";
+  `${SFW_NEGATIVE}, text, caption, watermark, logo, signature, blurry, lowres, deformed hands, extra fingers, distorted anatomy, oversaturated, grainy`;
 
 export interface GeneratedImage {
   image_url: string;

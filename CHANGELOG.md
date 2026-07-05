@@ -5,6 +5,16 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-04
 
+- **Hard SFW ban on all scene imagery.** Why: this is YouTube — NSFW/gore must
+  never render, regardless of what the script narration or LLM produces. Two
+  gates: (1) `lib/jobs/scene-image.ts` — new `SFW_NEGATIVE` constant (nudity,
+  sexual, gore, blood, open wounds, corpses, graphic violence, horror) prepended
+  to `BASE_NEGATIVE`, so it's appended to every image's negative prompt on both
+  the UI route and the worker path; (2) `lib/scene-engine/sleep-scene-prompt.ts`
+  — added an "SFW MANDATE (ABSOLUTE)" section instructing the LLM to never write
+  unsafe `visual_context`, and to depict violence/death bloodlessly. The negative
+  prompt is the last-resort gate; the prompt rule prevents it upstream.
+
 - **Jobs gate the render on complete images + expose the finished video.** Why:
   a job with failed images was still rendered (wasting a render on a broken
   video), and the dashboard only showed "Open project" so no-one could tell a

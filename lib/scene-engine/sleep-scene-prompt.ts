@@ -62,7 +62,10 @@ For each scene, also write a short comma-separated "negative_prompt" of things t
 - A modern scene → exclude the opposite anachronisms only if relevant (e.g. "horse-drawn carts, medieval armour, torches").
 Keep it under ~40 words. Do NOT repeat generic quality terms (blur, extra fingers, watermark) — those are added automatically.
 
-AVOID in the positive prompt: anachronisms, busy or cluttered frames, grey/desaturated/washed-out looks, sepia or yellow casts, unrequested filters or overlays, harsh clinical lighting, gore or explicit content.
+AVOID in the positive prompt: anachronisms, busy or cluttered frames, grey/desaturated/washed-out looks, sepia or yellow casts, unrequested filters or overlays, harsh clinical lighting.
+
+## SFW MANDATE (ABSOLUTE — THIS IS YOUTUBE)
+Every scene MUST be family-friendly and safe for a general audience. NEVER, under any circumstance and regardless of what the narration describes, write a visual_context containing: nudity, partial nudity, sexual or suggestive content, gore, blood, open wounds, injuries, mutilation, corpses, dead bodies, viscera, graphic violence, or disturbing/horror imagery. If the narration mentions a battle, death, wound, or violent event, depict it tastefully and bloodlessly — a distant silhouette, an empty landscape, a symbolic object, an aftermath with NO visible gore or bodies. When in doubt, choose the calmer, safer, more abstract image. This overrides every other rule.
 
 ## OUTPUT FORMAT
 Return ONLY a JSON object (no markdown, no code fences) with this exact structure:
