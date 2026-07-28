@@ -1,21 +1,16 @@
-// Turso-backed job store for the Baserow/ClickUp → sleep-stories pipeline.
+// Supabase-backed job store for the Baserow/ClickUp → sleep-stories pipeline.
 //
-// Mirrors footage-collector's store (same libSQL setup, same lifecycle) so the
-// two apps stay aligned. One table, `sleep_jobs`, in the shared Turso DB. The
+// Mirrors footage-collector's store (same lifecycle) so the two apps stay
+// aligned. One table, `sleep_jobs`, in the shared Supabase Postgres DB. The
 // finished `projectJson` is a WorkflowExport — exactly what the UI's import
 // path already consumes.
 
-import { createClient } from "@libsql/client";
+import { db } from "@/lib/db";
 import type { WorkflowExport } from "@/lib/utils/workflow-io";
 
 /** Rows are deleted this many days after ClickUp marks the task done (the same
  *  moment the dashboard hides them). */
 const DONE_RETENTION_DAYS = 7;
-
-const db = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN!,
-});
 
 export type JobStatus =
   | "queued"
@@ -74,8 +69,8 @@ async function ensureTable() {
       status_checked_at TEXT,
       hidden           INTEGER NOT NULL DEFAULT 0,
       clickup_done_at  TEXT,
-      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at       TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')),
+      updated_at       TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS'))
     )
   `);
   tableReady = true;
@@ -195,7 +190,7 @@ export async function updateJob(
     else args.push(v as any);
   }
   if (sets.length === 0) return;
-  sets.push("updated_at = datetime('now')");
+  sets.push("updated_at = to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')");
   args.push(taskId);
   await db.execute({
     sql: `UPDATE sleep_jobs SET ${sets.join(", ")} WHERE task_id = ?`,
@@ -222,7 +217,7 @@ export async function claimNextQueuedJob(): Promise<SleepJob | null> {
   if (!row) return null;
   const job = rowToJob(row);
   const upd = await db.execute({
-    sql: "UPDATE sleep_jobs SET status = 'running', updated_at = datetime('now') WHERE task_id = ? AND status = 'queued'",
+    sql: "UPDATE sleep_jobs SET status = 'running', updated_at = to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS') WHERE task_id = ? AND status = 'queued'",
     args: [job.taskId],
   });
   if (upd.rowsAffected === 0) return claimNextQueuedJob();
@@ -238,13 +233,20 @@ export async function requeueRunningJobs(): Promise<number> {
   return res.rowsAffected ?? 0;
 }
 
-/** Drop rows ClickUp marked done more than the retention window ago. */
+/**
+ * Drop rows ClickUp marked done more than the retention window ago, plus any
+ * row older than the window whatever its status — a job ClickUp never marks
+ * done (failed, cancelled, abandoned) would otherwise live forever. Safe to
+ * drop on age alone: the S3 `audio/` and `renders/` objects its project_json
+ * points at expire on the same 7-day lifecycle, so the row is dead weight.
+ */
 export async function cleanupExpiredJobs(): Promise<number> {
   await ensureTable();
   const res = await db.execute({
-    sql: `DELETE FROM sleep_jobs WHERE clickup_done_at IS NOT NULL
-          AND clickup_done_at < datetime('now', ?)`,
-    args: [`-${DONE_RETENTION_DAYS} days`],
+    sql: `DELETE FROM sleep_jobs
+          WHERE (clickup_done_at IS NOT NULL AND clickup_done_at < to_char((now() AT TIME ZONE 'utc') + (?)::interval,'YYYY-MM-DD HH24:MI:SS'))
+             OR created_at < to_char((now() AT TIME ZONE 'utc') + (?)::interval,'YYYY-MM-DD HH24:MI:SS')`,
+    args: [`-${DONE_RETENTION_DAYS} days`, `-${DONE_RETENTION_DAYS} days`],
   });
   return res.rowsAffected ?? 0;
 }

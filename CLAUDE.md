@@ -64,7 +64,7 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   Baserow row `video_processed`. Cooperative cancel. All ClickUp/Baserow
   writebacks are best-effort (caught) — a missing status label or wrong row never
   blocks the render.
-- **Store:** Turso table `sleep_jobs`, in the **same DB footage-collector uses**
+- **Store:** Supabase Postgres table `sleep_jobs`, in the **same DB footage-collector uses**
   (FC's table is `footage_jobs` — no collision). 7-day retention after ClickUp
   marks done.
 - **Dashboard:** `/jobs` page (`components/jobs/`), header **Jobs** link + ready
@@ -76,9 +76,9 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 - **Boards:** `lib/jobs/config.ts` maps ClickUp list `901113872792`
   ("Sleep Stories"). Status labels default to `in progress`/`fc done`/`complete`,
   overridable via `CLICKUP_STATUS_IN_PROGRESS|DONE|COMPLETE` env.
-- **Env (all on Railway + `.env.local`):** `INGEST_SECRET`, `TURSO_DATABASE_URL`,
-  `TURSO_AUTH_TOKEN`, `CLICKUP_API`, `BASE_ROW_URL`, `BASEROW_EMAIL`,
-  `BASEROW_PASSWORD`, `BASEROW_TABLE_ID`. (`INGEST_SECRET`/`CLICKUP_API`/Turso are
+- **Env (all on Railway + `.env.local`):** `INGEST_SECRET`, `SUPABASE_DB_URL`,
+  `CLICKUP_API`, `BASE_ROW_URL`, `BASEROW_EMAIL`,
+  `BASEROW_PASSWORD`, `BASEROW_TABLE_ID`. (`INGEST_SECRET`/`CLICKUP_API`/Supabase are
   the *same values* as footage-collector.)
 
 ## Deployment (the Next app itself)
@@ -99,7 +99,7 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 - `lib/remotion/` — `start-render.ts` (pick a title + kick Modal, shared by UI
   route + worker) and `sound-effects.ts` (the ambient-bed labels). Dir keeps its
   old name but no longer touches Remotion — Modal does all compositing.
-- `lib/jobs/` — ingest worker, Turso store, ClickUp/Baserow clients, board config.
+- `lib/jobs/` — ingest worker, Supabase store, ClickUp/Baserow clients, board config.
 - `app/api/render/*` — start a render + poll progress; `app/api/renders` lists the
   last 7 days from our bucket.
 - `app/api/jobs/*` — ingest, job list, per-job control.

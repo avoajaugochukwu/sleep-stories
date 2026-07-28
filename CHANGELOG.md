@@ -3,6 +3,45 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-07-19
+
+- **`sleep_jobs` retention never ran. The predicate was fine — nothing called
+  it.** Symptom: 3 rows sat in Turso with `clickup_done_at` of `2026-07-07/08`,
+  12 days past the 7-day window, uncollected. First guess was the WHERE clause
+  (it only matched `clickup_done_at IS NOT NULL`), but a dry-run SELECT of the
+  *old* predicate matched all 3 rows — so the query would always have deleted
+  them. Real cause: `cleanupExpiredJobs()` was only ever called from
+  `GET /api/jobs` (`app/api/jobs/route.ts:34`), so rows were collected only when
+  a human loaded the `/jobs` dashboard. Nobody had in 12 days. Fix:
+  `lib/jobs/worker.ts` now calls it in `drain()`'s `finally`, so ingest traffic
+  is the heartbeat instead of dashboard visits. Lesson: when retention "doesn't
+  work", check the caller before rewriting the query.
+- **`cleanupExpiredJobs()` also purges on age now** (`lib/jobs/store.ts:242`) —
+  added `OR created_at < datetime('now','-7 days')`. Not the bug above, but it
+  closes the genuine orphan case: a job ClickUp never marks done (failed,
+  cancelled, abandoned) has a null `clickup_done_at` and would live forever.
+  Safe to drop on age alone because the `audio/` and `renders/` S3 objects its
+  `project_json` points at expire on the same 7-day lifecycle — past 7 days the
+  row can't be re-rendered or re-hydrated anyway.
+- **Verified the "Modal ~10× cheaper than Remotion-Lambda" claim with real
+  numbers** (was previously an estimate; see 2026-06-25 entry). Method:
+  CloudWatch `Invocations`+`Duration` for the `remotion-render-*` functions over
+  7 days, ffprobe on every `out.mp4` in `remotionlambda-uswest2-wwdsm4roaj` to
+  get total output minutes. Result: 3,574,244 GB-s + ephemeral-storage billing =
+  **$59.92 for 42 renders / 533.8 output-min** = **$0.112/output-min**, so a 2h
+  sleep story on Lambda ≈ **$13.50**. The `~$10/render` figure was if anything
+  understated. Modal side ≈ $0.65 modeled (no recent render existed to measure —
+  7-day lifecycle had emptied the bucket).
+- **Corollary: running Remotion *on Modal* would save nothing.** Lambda at
+  `mem3072mb` = 1.736 vCPU for $0.18/hr = **$0.104/vCPU-hr**; Modal's
+  `RATE_PER_CORE_HR = 0.10`. Same price. The whole ~20× win is
+  ffmpeg-vs-headless-Chrome, not Modal-vs-Lambda — moving Chrome to another host
+  carries its cost along. Don't revisit this.
+- **Caveat on `RATE_PER_CORE_HR = 0.10` (`render-modal/modal_app.py:53`)** — it's
+  a hardcoded guess and it ignores memory billing entirely (containers request
+  `memory=4096`/`8192`). Every Modal dollar figure we quote rests on it. Worth
+  checking against Modal's current price page.
+
 ## 2026-07-04
 
 - **Hard SFW ban on all scene imagery.** Why: this is YouTube — NSFW/gore must
@@ -400,11 +439,11 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
   - **Boards:** `lib/jobs/config.ts` maps ClickUp list `901113872792`
     ("Sleep Stories") → label. Status labels default to `"in progress"`/
     `"fc done"`/`"complete"`, overridable via `CLICKUP_STATUS_*` env.
-  - **New deps:** `@libsql/client` (Turso, same as FC), `music-metadata` (read
+  - **New deps:** `pg` (Supabase Postgres, same as FC), `music-metadata` (read
     audio duration server-side — the browser uses an `<audio>` element the
     worker has no access to).
-  - **New env (copied from FC's `.env.local`):** `TURSO_DATABASE_URL`,
-    `TURSO_AUTH_TOKEN`, `INGEST_SECRET`, `CLICKUP_API`, `BASE_ROW_URL`,
+  - **New env (copied from FC's `.env.local`):** `SUPABASE_DB_URL`,
+    `INGEST_SECRET`, `CLICKUP_API`, `BASE_ROW_URL`,
     `BASEROW_EMAIL`, `BASEROW_PASSWORD`, `BASEROW_TABLE_ID`, plus `RAILWAY_*`.
   - **Refactor (no behaviour change):** factored shared cores into
     `lib/remotion/start-render.ts` and `lib/jobs/scene-image.ts`; the render-start
