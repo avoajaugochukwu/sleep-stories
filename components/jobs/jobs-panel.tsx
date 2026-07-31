@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { STATE_ORDER, STATE_STYLE, type RenderState } from "./state-style";
 
 type JobStatus = "queued" | "running" | "ready" | "failed" | "cancelled" | "needs_images";
 
@@ -10,6 +11,13 @@ interface JobSummary {
   channel: string | null;
   name: string;
   status: JobStatus;
+  /** Derived server-side (lib/jobs/render-state.ts) — the same words the job
+   *  page shows. `status` alone can't tell "rendering" from "rendered": the
+   *  worker sets `ready` the moment it hands off to Modal. */
+  state: RenderState;
+  stateLabel: string;
+  stateDetail: string;
+  renderExists: boolean;
   progress: string | null;
   total: number;
   completed: number;
@@ -17,20 +25,12 @@ interface JobSummary {
   error: string | null;
   videoUrl: string | null;
   clickupUrl: string;
+  /** The job's own page. */
   url: string;
+  /** The editor, for fixing images and re-rendering by hand. */
+  projectUrl: string;
   updatedAt: string;
 }
-
-const BADGE: Record<JobStatus, { dot: string; text: string; bar: string; label: string }> = {
-  queued: { dot: "bg-muted-foreground/60", text: "text-muted-foreground", bar: "bg-muted-foreground/50", label: "Queued" },
-  running: { dot: "bg-primary animate-pulse", text: "text-primary", bar: "bg-primary", label: "Running" },
-  ready: { dot: "bg-success", text: "text-success", bar: "bg-success", label: "Ready" },
-  needs_images: { dot: "bg-amber-500", text: "text-amber-500", bar: "bg-amber-500", label: "Needs images" },
-  failed: { dot: "bg-destructive", text: "text-destructive", bar: "bg-destructive", label: "Failed" },
-  cancelled: { dot: "bg-muted-foreground/60", text: "text-muted-foreground", bar: "bg-muted-foreground/50", label: "Cancelled" },
-};
-
-const ORDER: JobStatus[] = ["running", "queued", "needs_images", "ready", "failed", "cancelled"];
 
 function relTime(iso: string): string {
   const t = Date.parse(iso.replace(" ", "T") + "Z");
@@ -54,8 +54,8 @@ async function jobAction(taskId: string, action: "retry" | "cancel") {
 
 function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
   const [busy, setBusy] = useState(false);
-  const badge = BADGE[job.status];
-  const active = job.status === "queued" || job.status === "running";
+  const badge = STATE_STYLE[job.state];
+  const active = job.state === "queued" || job.state === "generating";
   const pct = job.total > 0 ? Math.round(((job.completed + job.failed) / job.total) * 100) : 0;
 
   const act = (action: "retry" | "cancel", confirmMsg?: string) => async () => {
@@ -73,18 +73,19 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`text-xs font-semibold uppercase tracking-wide ${badge.text}`}>
-              {badge.label}
+              {job.stateLabel}
             </span>
             <span className="text-[11px] text-muted-foreground">{relTime(job.updatedAt)}</span>
           </div>
-          <p className="mt-1 break-words text-sm font-medium text-foreground">
+          <Link
+            href={job.url}
+            className="mt-1 block break-words text-sm font-medium text-foreground hover:underline"
+          >
             {job.name || job.taskId}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {job.status === "failed" ? job.error || "Failed" : job.progress || badge.label}
-          </p>
+          </Link>
+          <p className="mt-0.5 text-xs text-muted-foreground">{job.stateDetail}</p>
 
-          {(job.status === "running" || job.total > 0) && (
+          {(active || job.total > 0) && (
             <div className="mt-2 flex items-center gap-2">
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary/60">
                 <div className={`h-full rounded-full transition-all ${badge.bar}`} style={{ width: `${pct}%` }} />
@@ -98,15 +99,24 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {(job.status === "ready" || job.status === "needs_images") && (
+            <Link
+              href={job.url}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+            >
+              Open job →
+            </Link>
+            {/* The editor is where the Render button lives, so it stays a
+                secondary action and is only offered when a human genuinely has
+                something to fix. Never for a job that is already rendering. */}
+            {(job.state === "needs_images" || job.state === "needs_render") && (
               <Link
-                href={job.url}
-                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                href={job.projectUrl}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary/50"
               >
-                Open project →
+                Open project to fix →
               </Link>
             )}
-            {job.status === "ready" && job.videoUrl && (
+            {job.videoUrl && (
               <a
                 href={job.videoUrl}
                 target="_blank"
@@ -125,7 +135,10 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
                 {busy ? "…" : "Cancel"}
               </button>
             )}
-            {(job.status === "failed" || job.status === "cancelled" || job.status === "needs_images") && (
+            {(job.state === "failed" ||
+              job.state === "cancelled" ||
+              job.state === "needs_images" ||
+              job.state === "render_failed") && (
               <button
                 disabled={busy}
                 onClick={act("retry")}
@@ -172,7 +185,12 @@ export function JobsPanel() {
     return () => clearInterval(t);
   }, [load]);
 
-  const counts = ORDER.map((s) => ({ s, n: jobs.filter((j) => j.status === s).length }));
+  // Chip labels come from the jobs themselves, not a local map — the server owns
+  // what a state is called (lib/jobs/render-state.ts) and this keeps one copy.
+  const counts = STATE_ORDER.map((s) => {
+    const inState = jobs.filter((j) => j.state === s);
+    return { s, n: inState.length, label: inState[0]?.stateLabel ?? s };
+  });
 
   // Group by channel; channels with active work float to the top.
   const byChannel = new Map<string, JobSummary[]>();
@@ -183,8 +201,14 @@ export function JobsPanel() {
   const groups = [...byChannel.entries()]
     .map(([channel, list]) => ({
       channel,
-      jobs: [...list].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status)),
-      active: list.some((j) => j.status === "running" || j.status === "queued"),
+      jobs: [...list].sort(
+        (a, b) => STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state),
+      ),
+      // "Active" now includes rendering — a channel with a render in flight is
+      // still working, and burying it reads as finished.
+      active: list.some(
+        (j) => j.state === "generating" || j.state === "queued" || j.state === "rendering",
+      ),
     }))
     .sort((a, b) => {
       if (a.channel === "Unassigned") return 1;
@@ -203,8 +227,8 @@ export function JobsPanel() {
               key={c.s}
               className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/40 px-3 py-1 text-xs font-medium text-muted-foreground"
             >
-              <span className={`h-2 w-2 rounded-full ${BADGE[c.s].dot}`} />
-              {c.n} {BADGE[c.s].label}
+              <span className={`h-2 w-2 rounded-full ${STATE_STYLE[c.s].dot}`} />
+              {c.n} {c.label}
             </span>
           ))}
         <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">

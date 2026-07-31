@@ -161,11 +161,17 @@ async function processJob(job: SleepJob): Promise<void> {
           if (k >= indices.length) return;
           const index = indices[k];
           try {
-            const { image_url, prompt_used } = await generateSceneImage(scenes[index]);
+            const { image_url } = await generateSceneImage(scenes[index]);
             storyboard[index] = {
               ...storyboard[index],
               image_url,
-              visual_prompt: prompt_used,
+              // Deliberately NOT `visual_prompt: prompt_used`. prompt_used is the
+              // FINAL prompt, STYLE_PREFIX included; storing it made the field
+              // non-idempotent, so every retry round or manual regenerate
+              // prepended the prefix again. 77 of 176 scenes in the live Somme
+              // job ended up as "highly detailed digital painting, highly
+              // detailed digital painting: …". visual_prompt stays the authored
+              // prompt; the prefix is applied at generation time, every time.
               generation_status: "completed",
               error_message: undefined,
               image_pool_index: index,

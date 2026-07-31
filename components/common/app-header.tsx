@@ -3,28 +3,27 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Moon, RotateCcw, ListChecks } from 'lucide-react';
-import { useSessionStore } from '@/lib/store';
-import { WorkflowIO } from '@/components/common/workflow-io';
+import { Moon, ListChecks, ArrowLeft } from 'lucide-react';
 import { ReadyTasksBadge } from '@/components/jobs/ready-tasks-badge';
 
-const STEPS = [
-  { path: '/scenes', label: 'Scenes', step: '01' },
-  { path: '/render', label: 'Render', step: '02' },
+// No "01"/"02" any more. The numbering sold a linear wizard, and almost no video
+// walks it — ingest jobs break down AND render on their own. These are two views
+// of one project, not two steps you complete in order.
+const EDITOR_TABS = [
+  { path: '/scenes', label: 'Scenes' },
+  { path: '/render', label: 'Render' },
 ];
 
 export function AppHeader() {
   const pathname = usePathname();
-  const reset = useSessionStore((s) => s.reset);
 
-  // Hide the workflow stepper on the landing page
-  const isLanding = pathname === '/';
-
-  const handleReset = () => {
-    if (confirm('Are you sure you want to start over? All current progress will be lost.')) {
-      reset();
-    }
-  };
+  // Navigation only. Export / Import / Start Over used to live here, but they
+  // act on the SESSION — one project's scenes, images and audio — not on the
+  // app. In the header they rode along onto the queue, where there is no session
+  // and they did nothing (one of them destructively). They now live in the
+  // session strip on /scenes, next to the work they affect.
+  const isEditor = pathname === '/scenes' || pathname === '/render';
+  const isQueue = pathname === '/jobs' || pathname.startsWith('/jobs/');
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
@@ -39,52 +38,44 @@ export function AppHeader() {
           </span>
         </Link>
 
-        {!isLanding && (
-          <div className="flex items-center gap-3">
-            <nav className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/30 p-1.5">
-              {STEPS.map((s) => {
-                const active = pathname === s.path;
-                return (
-                  <Link
-                    key={s.path}
-                    href={s.path}
-                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
-                      active
-                        ? 'bg-primary/15 text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <span className="font-mono text-xs text-primary/70">{s.step}</span>
-                    {s.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <Link
-              href="/jobs"
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${
-                pathname === '/jobs'
-                  ? 'border-border bg-primary/15 text-foreground'
-                  : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
+        <div className="flex items-center gap-3">
+          {/* The queue is home. On editor pages this is the way back, so it
+              reads as a back-link rather than a peer tab. */}
+          <Link
+            href="/jobs"
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${
+              isQueue
+                ? 'border-border bg-primary/15 text-foreground'
+                : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            {isQueue ? (
               <ListChecks className="h-4 w-4" />
-              <span className="hidden sm:inline">Jobs</span>
-              <ReadyTasksBadge />
-            </Link>
+            ) : (
+              <ArrowLeft className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Jobs</span>
+            <ReadyTasksBadge />
+          </Link>
 
-            <WorkflowIO />
-
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-border"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Start Over</span>
-            </button>
-          </div>
-        )}
+          {isEditor && (
+            <nav className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/30 p-1.5">
+              {EDITOR_TABS.map((t) => (
+                <Link
+                  key={t.path}
+                  href={t.path}
+                  className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                    pathname === t.path
+                      ? 'bg-primary/15 text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t.label}
+                </Link>
+              ))}
+            </nav>
+          )}
+        </div>
       </div>
     </header>
   );

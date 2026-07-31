@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteJob, getJob, updateJob } from "@/lib/jobs/store";
 import { enqueueJob, ensureResumed } from "@/lib/jobs/worker";
+import { deriveJobState, type ModalProgress } from "@/lib/jobs/render-state";
+import { clickupTaskUrl } from "@/lib/jobs/clickup";
+import { listRecentRenders } from "@/lib/aws/s3";
+import { fetchModalRenderProgress } from "@/lib/render/modal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +24,37 @@ export async function GET(
   if (!job) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  // Unlike the list route, ONE job is cheap enough to ask Modal about directly —
+  // that is what turns "Rendering" into a real percentage, and a dead render
+  // into "Render failed" instead of a bar that never moves. Both lookups are
+  // best-effort: a job page must still render when S3 or Modal is unreachable.
+  const renderId = job.projectJson?.state?.renders?.[0]?.renderId ?? null;
+  let videoUrl: string | null = null;
+  let modal: ModalProgress | null = null;
+  if (renderId) {
+    [videoUrl, modal] = await Promise.all([
+      listRecentRenders()
+        .then((rs) => rs.find((r) => r.renderId === renderId)?.url ?? null)
+        .catch(() => null),
+      fetchModalRenderProgress(renderId).catch(() => null),
+    ]);
+  }
+
+  const derived = deriveJobState(job, videoUrl, modal);
+
   return NextResponse.json({
     taskId: job.taskId,
     name: job.name,
     status: job.status,
+    state: derived.state,
+    stateLabel: derived.label,
+    stateDetail: derived.detail,
+    renderExists: derived.renderExists,
+    renderId,
+    videoUrl,
+    clickupUrl: clickupTaskUrl(job.taskId),
+    projectUrl: `/scenes?job=${job.taskId}`,
     progress: job.progress,
     total: job.total,
     completed: job.completed,

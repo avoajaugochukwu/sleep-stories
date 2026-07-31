@@ -17,11 +17,15 @@ export interface BoardConfig {
 }
 
 export const BOARDS: Record<string, BoardConfig> = {
-  // The Sleep Stories board.
+  // The sleep-stories board. ClickUp calls this list **Midnight Mysteries** —
+  // the label here used to read "Sleep Stories", which cost a search to
+  // reconcile. There is no separate space/cosmos list: the only other candidate,
+  // "Space Cluster" (901113798933), is footage-collector's WW2 board despite the
+  // name. A second genre rides on this same list via the ingest payload.
   // https://app.clickup.com/9011731879/v/l/li/901113872792
   "901113872792": {
     listId: "901113872792",
-    label: "Sleep Stories",
+    label: "Midnight Mysteries",
   },
 };
 
@@ -36,6 +40,14 @@ export function boardForList(listId: string | null | undefined): BoardConfig | n
 // — footage/render still lands). Override per-deploy via env.
 export const STATUS_IN_PROGRESS =
   process.env.CLICKUP_STATUS_IN_PROGRESS || "in progress";
+// ⚠️ VERIFIED BROKEN 2026-07-31, left alone deliberately. The Midnight Mysteries
+// list has exactly three statuses — `to do`, `in progress`, `complete` — so
+// "fc done" does not exist on it and this writeback silently no-ops (it is
+// best-effort and caught, so nothing fails). Effect: a job whose render has
+// started still reads "in progress" in ClickUp until a human sets it complete.
+// Not changed here because picking a real status changes YOUR ClickUp workflow,
+// which is not a call this file should make on its own. Either set
+// CLICKUP_STATUS_DONE to a status that exists, or add "fc done" to the list.
 export const STATUS_DONE = process.env.CLICKUP_STATUS_DONE || "fc done";
 /** Status that means "human is finished — hide from the dashboard". */
 export const STATUS_COMPLETE =

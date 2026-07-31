@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SOUND_EFFECTS, type SoundEffectKey } from "@/lib/remotion/sound-effects";
 import { NavigationButtons } from "@/components/common/navigation-buttons";
+import { SessionTools } from "@/components/workflow/session-tools";
 import {
+  AlertCircle,
   AudioLines,
   CheckCircle2,
   Clapperboard,
@@ -155,6 +157,15 @@ export function RenderPanel() {
 
   const activeCount = renders.filter((r) => r.status === "rendering").length;
 
+  // The headless worker starts a render itself and checkpoints it into the job's
+  // projectJson, so a hydrated job arrives here with `renders` already populated.
+  // Nothing displayed that: the S3 history is empty until the MP4 lands, so the
+  // page looked un-rendered and one click paid Modal for a second copy of a
+  // multi-hour video. Surface it, and make a second take deliberate.
+  const latest = renders[0] ?? null;
+  const alreadyRendered = !!latest && latest.status !== "error";
+  const [confirmExtra, setConfirmExtra] = useState(false);
+
   const handleRender = async () => {
     if (!audio) return;
     setStartError(null);
@@ -180,6 +191,7 @@ export function RenderPanel() {
         status: "rendering",
         progress: 0,
       });
+      setConfirmExtra(false);
     } catch (e) {
       setStartError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -206,6 +218,67 @@ export function RenderPanel() {
           Fire off as many takes as you like — they render in parallel and stay here for 7 days.
         </p>
       </div>
+
+      {/* Session tools live with the session now, not in the header. /scenes has
+          them in its identity strip; this page needs its own so Export stays
+          reachable from the step you are actually on. */}
+      <div className="flex justify-end">
+        <SessionTools />
+      </div>
+
+      {/* This project already has a render — the single most expensive thing to
+          get wrong on this page, so it goes above everything else. */}
+      {renders.length > 0 && (
+        <div className="space-y-2">
+          {renders.map((r) => (
+            <div
+              key={r.renderId}
+              className={`glass-card flex items-center gap-3 p-4 text-sm ${
+                r.status === "error"
+                  ? "border-destructive/40"
+                  : r.status === "done"
+                    ? "border-success/40"
+                    : "border-primary/40"
+              }`}
+            >
+              {r.status === "rendering" ? (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
+              ) : r.status === "done" ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+              ) : (
+                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">
+                  {r.status === "rendering"
+                    ? `Already rendering — ${Math.round((r.progress ?? 0) * 100)}%`
+                    : r.status === "done"
+                      ? "Already rendered — video is ready"
+                      : `Render failed — ${r.error ?? "unknown error"}`}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {r.title} · started {fmtWhen(new Date(r.createdAt).toISOString())}
+                  {r.cost != null ? ` · $${r.cost.toFixed(2)}` : ""}
+                </p>
+              </div>
+              {r.status === "done" && r.outputFile && (
+                <a
+                  href={r.outputFile}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 shrink-0 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-accent"
+                >
+                  <Download className="mr-1 h-3.5 w-3.5" /> MP4
+                </a>
+              )}
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Jobs from the Baserow/ClickUp pipeline render automatically — you
+            don&rsquo;t need to start one. Only render again if this take is wrong.
+          </p>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -273,7 +346,12 @@ export function RenderPanel() {
       <div className="flex flex-col items-center gap-3">
         <Button
           size="lg"
-          onClick={handleRender}
+          variant={alreadyRendered && !confirmExtra ? "outline" : "default"}
+          onClick={
+            alreadyRendered && !confirmExtra
+              ? () => setConfirmExtra(true)
+              : handleRender
+          }
           disabled={!ready || starting}
           className="min-w-[220px]"
         >
@@ -284,10 +362,29 @@ export function RenderPanel() {
           ) : (
             <>
               <Clapperboard className="mr-2 h-4 w-4" />
-              {renders.length > 0 ? "Render another take" : "Render video"}
+              {!alreadyRendered
+                ? renders.length > 0
+                  ? "Render another take"
+                  : "Render video"
+                : confirmExtra
+                  ? "Yes — pay for another render"
+                  : "Render another take…"}
             </>
           )}
         </Button>
+        {alreadyRendered && confirmExtra && !starting && (
+          <p className="max-w-sm text-center text-xs text-amber-500">
+            This starts a second Modal render and is billed separately. These
+            videos are long — confirm only if the existing take is unusable.{" "}
+            <button
+              type="button"
+              onClick={() => setConfirmExtra(false)}
+              className="underline underline-offset-2"
+            >
+              Cancel
+            </button>
+          </p>
+        )}
         {!ready && (
           <p className="text-xs text-muted-foreground">
             Add narration audio and generated scenes to enable rendering.

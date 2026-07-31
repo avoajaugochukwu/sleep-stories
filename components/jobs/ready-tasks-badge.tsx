@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-// Small "N ready" pill for the header Jobs link. Polls /api/jobs lightly so the
-// count stays fresh; hidden when nothing is ready.
+// Small "N done" pill for the header Jobs link. Polls /api/jobs lightly so the
+// count stays fresh; hidden when nothing is finished.
+//
+// Counts the derived `rendered` state, NOT the row's `ready` status. `ready`
+// means the worker handed off to Modal — it is set while the video is still
+// rendering, so counting it here advertised finished videos that did not exist
+// yet (same root cause as the duplicate-render bug, CHANGELOG 2026-07-30).
 // ponytail: reuses GET /api/jobs; add a /count route only if this gets heavy.
 export function ReadyTasksBadge() {
   const [ready, setReady] = useState<number | null>(null);
@@ -15,7 +20,7 @@ export function ReadyTasksBadge() {
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (!alive || !d?.jobs) return;
-          setReady((d.jobs as { status: string }[]).filter((j) => j.status === "ready").length);
+          setReady((d.jobs as { state: string }[]).filter((j) => j.state === "rendered").length);
         })
         .catch(() => {});
     load();

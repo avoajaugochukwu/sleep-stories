@@ -2,15 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { parseWorkflowFile, applyWorkflow } from "@/lib/utils/workflow-io";
+import { SessionTools } from "@/components/workflow/session-tools";
 
 type JobState = {
   status: "queued" | "running" | "ready" | "failed" | "needs_images";
+  name?: string;
+  stateLabel?: string;
   progress: string | null;
   error: string | null;
   projectJson: unknown;
 };
+
+/** A ready job already had its render kicked off by the worker (checkpointed in
+ *  projectJson). Saying only "ready below" read as "now go press Render", which
+ *  bought a second copy of a multi-hour video. */
+function renderStarted(projectJson: unknown): boolean {
+  const renders = (projectJson as { state?: { renders?: unknown[] } })?.state?.renders;
+  return Array.isArray(renders) && renders.length > 0;
+}
 
 /**
  * When the page is opened as /scenes?job=<taskId> (the URL the ingest endpoint
@@ -65,7 +77,22 @@ export function JobHydrator() {
     };
   }, [jobId]);
 
-  if (!jobId || !state) return null;
+  // No ?job= — the editor is showing whatever the session store happens to hold,
+  // which after any prior job is somebody else's scenes with nothing saying so.
+  // Say so. This is the whole reason jobs got their own URLs.
+  if (!jobId) {
+    return (
+      <div className="glass-card flex flex-wrap items-center gap-x-3 gap-y-2 p-4 text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">Manual session</span>
+        <span className="text-xs">
+          Not linked to a job — nothing here writes back to the queue.
+        </span>
+        <SessionTools className="ml-auto" />
+      </div>
+    );
+  }
+
+  if (!state) return null;
 
   const tone =
     state.status === "failed"
@@ -77,7 +104,23 @@ export function JobHydrator() {
           : "border-border/70 text-muted-foreground";
 
   return (
-    <div className={`glass-card flex items-center gap-3 p-4 text-sm ${tone}`}>
+    <div className={`glass-card space-y-2 p-4 text-sm ${tone}`}>
+      {/* Persistent identity strip. The banner below is about STATUS and can
+          settle; this says which job you are editing and never goes away. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/50 pb-2">
+        <span className="truncate font-medium text-foreground">
+          {state.name || "Job"}
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">{jobId}</span>
+        <Link
+          href={`/jobs/${jobId}`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          ← Back to job
+        </Link>
+        <SessionTools className="ml-auto" />
+      </div>
+      <div className="flex items-center gap-3">
       {state.status === "failed" || state.status === "needs_images" ? (
         <AlertCircle className="h-5 w-5 shrink-0" />
       ) : state.status === "ready" ? (
@@ -91,9 +134,12 @@ export function JobHydrator() {
           : state.status === "needs_images"
             ? "Some images failed — regenerate the missing ones below, then render the full video."
             : state.status === "ready"
-              ? "Loaded the prebaked workflow — scenes, images and render are ready below."
+              ? renderStarted(state.projectJson)
+                ? "Loaded the prebaked workflow — the video is already rendering (started automatically). Check the render step for progress; you don't need to start one."
+                : "Loaded the prebaked workflow — scenes, images and audio are ready below."
               : state.progress ?? "Processing…"}
       </span>
+      </div>
     </div>
   );
 }

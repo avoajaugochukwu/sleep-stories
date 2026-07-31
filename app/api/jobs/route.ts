@@ -7,6 +7,7 @@ import {
 } from "@/lib/jobs/store";
 import { ensureResumed } from "@/lib/jobs/worker";
 import { clickupTaskUrl, getClickupState } from "@/lib/jobs/clickup";
+import { deriveJobState } from "@/lib/jobs/render-state";
 import { STATUS_COMPLETE, boardForList } from "@/lib/jobs/config";
 import { listRecentRenders } from "@/lib/aws/s3";
 
@@ -80,20 +81,31 @@ export async function GET() {
 
   const summary = shown.map((j) => {
     const renderId = j.projectJson?.state?.renders?.[0]?.renderId;
+    const videoUrl = renderId ? renderUrlById.get(renderId) ?? null : null;
+    // No Modal progress here on purpose — one Modal call per row on every poll.
+    // The per-job page fetches it and gets the finer answer.
+    const derived = deriveJobState(j, videoUrl);
     return {
       taskId: j.taskId,
       channel: boardForList(j.listId)?.label ?? j.listName ?? null,
       name: j.name,
       status: j.status,
+      // Derived state — the same words the job page shows. Never stored.
+      state: derived.state,
+      stateLabel: derived.label,
+      stateDetail: derived.detail,
+      renderExists: derived.renderExists,
       progress: j.progress,
       total: j.total,
       completed: j.completed,
       failed: j.failed,
       error: j.error,
-      videoUrl: renderId ? renderUrlById.get(renderId) ?? null : null,
+      videoUrl,
       clickupStatus: j.clickupStatus,
       clickupUrl: clickupTaskUrl(j.taskId),
-      url: `/scenes?job=${j.taskId}`,
+      /** The job's own page. `/scenes?job=` is still the EDIT path (below). */
+      url: `/jobs/${j.taskId}`,
+      projectUrl: `/scenes?job=${j.taskId}`,
       updatedAt: j.updatedAt,
     };
   });

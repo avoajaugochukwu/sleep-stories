@@ -41,6 +41,29 @@ export interface GeneratedImage {
  * API. Shared by the interactive route (app/api/generate/scene-image) and the
  * background worker. Throws on failure so callers decide how to retry/skip.
  */
+/**
+ * Drop a style phrase the LLM wrote at the front of its own prompt, so
+ * STYLE_PREFIX is not applied twice.
+ *
+ * `sleep-scene-prompt.ts` tells the model the exact words that get prepended
+ * ("highly detailed digital painting") while instructing it not to name a style
+ * — which primes it to write them anyway. In the live Somme job **77 of 176
+ * scenes** came back as "highly detailed digital painting, highly detailed
+ * digital painting: wide view at twilight…". Two copies of the style tokens
+ * dilute the rest of the prompt for no gain.
+ *
+ * Only strips a LEADING occurrence, and only the phrase we ourselves prepend:
+ * a scene that legitimately depicts a painting keeps its words.
+ */
+export function stripLeadingStyle(visualPrompt: string): string {
+  // Repeated on purpose: already-stored projects can carry TWO copies, so
+  // stripping one would still leave a duplicate once STYLE_PREFIX goes back on.
+  return visualPrompt.replace(
+    /^(?:\s*(?:highly\s+detailed\s+)?digital\s+painting\s*[,:;.\-—]*\s*)+/i,
+    "",
+  );
+}
+
 export async function generateSceneImage(
   scene: Pick<Scene, "scene_number" | "visual_prompt" | "negative_prompt">,
 ): Promise<GeneratedImage> {
@@ -53,8 +76,10 @@ export async function generateSceneImage(
 
   const prompt =
     STYLE_PREFIX +
-    (scene.visual_prompt ||
-      "a lone figure gazing up at a vast starlit night sky over calm hills, cool blue moonlight, rich saturated colour");
+    stripLeadingStyle(
+      scene.visual_prompt ||
+        "a lone figure gazing up at a vast starlit night sky over calm hills, cool blue moonlight, rich saturated colour",
+    );
   const negativePrompt = [scene.negative_prompt, BASE_NEGATIVE]
     .filter(Boolean)
     .join(", ");
