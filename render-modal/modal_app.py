@@ -53,12 +53,56 @@ ASSEMBLE_CORES = 4
 RATE_PER_CORE_HR = 0.10
 
 # Overlay scheduler (verbatim from build-input.ts scheduleOverlays).
-OVERLAY_POOL = [
-    ("blue_smoke_later_in_video.mp4", 20.0), ("bubbles_smoke_later_in_video.mp4", 15.0),
-    ("full_screen_light_cloud.mp4", 15.0), ("light_white_smoke_rising_from_bottom.mp4", 40.95),
-    ("love_vortex.mp4", 15.0), ("red_faint_fire.mp4", 12.0),
-]
+#
+# The pool is chosen by FILENAME PREFIX, not a hardcoded list: `fire-*.mp4` is the
+# earthly pack (smoke, flame, mist), `space-*.mp4` the cosmic one. Adding a clip
+# is dropping a correctly-prefixed file into public/overlays — no code change, no
+# manifest to keep in sync.
+#
+# Durations are probed at render time rather than written down. The old constants
+# had drifted from the real files (red_faint_fire was listed 12.0, is 12.031667),
+# and the value is a modulo for the source seek, so a wrong one makes the clip
+# jump. Probing costs one ffprobe per clip, once per render.
+OVERLAY_DIR = "/assets/overlays"
+DEFAULT_OVERLAY_PACK = "fire"
 SEG_MIN, SEG_MAX, GAP_MAX, GAP_CHANCE, OV_FADE = 45.0, 150.0, 40.0, 0.35, 2.5
+
+
+def _probe_seconds(path):
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "csv=p=0", path],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(out.stdout.strip())
+    except ValueError:
+        return 0.0
+
+
+def overlay_pool(pack):
+    """[(filename, seconds)] for one pack, sorted so a given seed is reproducible.
+
+    An unknown or empty pack falls back to the default rather than rendering with
+    no overlays at all — a video with no ambient motion is a visibly worse video,
+    and it is not worth failing a two-hour render over a bad pack name.
+    """
+    pack = (pack or DEFAULT_OVERLAY_PACK).strip().lower()
+    names = sorted(
+        f for f in os.listdir(OVERLAY_DIR)
+        if f.startswith(f"{pack}-") and f.endswith(".mp4")
+    )
+    if not names:
+        print(f"[overlays] pack {pack!r} matched nothing; falling back to "
+              f"{DEFAULT_OVERLAY_PACK!r}", flush=True)
+        names = sorted(
+            f for f in os.listdir(OVERLAY_DIR)
+            if f.startswith(f"{DEFAULT_OVERLAY_PACK}-") and f.endswith(".mp4")
+        )
+    pool = [(n, _probe_seconds(os.path.join(OVERLAY_DIR, n))) for n in names]
+    pool = [(n, s) for n, s in pool if s > 0]
+    print(f"[overlays] pack={pack} clips={[n for n, _ in pool]}", flush=True)
+    return pool
 
 # Title (TitleCard.tsx) + captions (story-text.ts) timing.
 TITLE_FADE_IN, TITLE_HOLD, TITLE_FADE_OUT = 2.0, 4.5, 2.5
@@ -133,16 +177,19 @@ def gentle_line(snippet, maxchars=40):
     return re.sub(r"[.,;:!?—-]+$", "", line).strip()
 
 
-def schedule_overlays(durations, seed):
+def schedule_overlays(durations, seed, pool):
     """Scene-aligned port of scheduleOverlays(): reshuffled-bag rotation, 45-150s appearances,
     35% gap chance (<=40s), fades on first/last scene of each appearance."""
     rng = random.Random(seed)
     bag = []
 
+    if not pool:
+        return [None] * len(durations)
+
     def nxt():
         nonlocal bag
         if not bag:
-            bag = OVERLAY_POOL[:]
+            bag = list(pool)
             rng.shuffle(bag)
         return bag.pop()
 
@@ -325,7 +372,7 @@ def assemble(render_id, clip_keys, bucket, tmp_prefix, audio_url, audio_dur, sou
 
 
 @app.function(secrets=[secret], timeout=3600)
-def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title):
+def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title, overlay_pack=DEFAULT_OVERLAY_PACK):
     t0 = time.time()
     # Sleep-stories' OWN bucket (audio/ + renders/, 7-day lifecycle). Not the
     # shared image-gen bucket — override via SLEEP_RENDER_BUCKET if it ever moves.
@@ -340,7 +387,7 @@ def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title):
     for d in durations:
         starts_sec.append(acc); acc += d
     seed = int(hashlib.md5(render_id.encode()).hexdigest()[:8], 16)
-    sched = schedule_overlays(durations, seed)
+    sched = schedule_overlays(durations, seed, overlay_pool(overlay_pack))
     caps = select_captions(starts_sec, snippets, seed ^ 0x9e3779b9)
 
     jobs = []
@@ -403,7 +450,8 @@ def web():
                 scenes.append({**s, "image_url": last})
         title = body.get("title") or "A Quiet Night"
         driver.spawn(rid, scenes, body["audioUrl"], body["audioDurationSec"],
-                     body.get("soundEffect", "fire"), title)
+                     body.get("soundEffect", "fire"), title,
+                     body.get("overlayPack", DEFAULT_OVERLAY_PACK))
         return {"renderId": rid,
                 "bucketName": os.environ.get("SLEEP_RENDER_BUCKET", "sleep-stories-media"),
                 "title": title, "durationInFrames": round(body["audioDurationSec"] * FPS),

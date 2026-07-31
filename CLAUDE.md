@@ -94,6 +94,13 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 
 ## Where to look
 
+- **`HANDOFF.md` — read this first in a new session.** Deployed-vs-local
+  divergence, uncommitted work, ordered next steps, and the facts worth not
+  relearning. `session.md` is the running log; `PLAN-AGENTS.md` is the agent spec.
+- `agents/` — Python agent layer (`script_context`, `scene_splitter`,
+  `scene_director`) + `agents/CLAUDE.md` for its operating rules. Built and
+  live-tested but **wired into nothing**; `lib/scene-engine/no-gap-breakdown.ts`
+  still drives production. `npm run check:agents` runs 47 offline checks.
 - `render-modal/` — the Modal ffmpeg renderer (Python) that composites the video.
 - `lib/render/modal.ts` — HTTP client for the Modal renderer (start + poll).
 - `lib/remotion/` — `start-render.ts` (pick a title + kick Modal, shared by UI

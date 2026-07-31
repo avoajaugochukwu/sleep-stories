@@ -25,10 +25,12 @@ export async function startRenderForScenes(opts: {
   audioUrl: string;
   audioDurationSec: number;
   soundEffect?: string;
+  /** Overlay pack prefix (`fire` | `space`). See lib/render/modal.ts. */
+  overlayPack?: string;
   /** Override the AI title (e.g. ClickUp task name) — also names the render file. */
   title?: string;
 }): Promise<StartRenderResult> {
-  const { scenes, audioUrl, audioDurationSec, soundEffect } = opts;
+  const { scenes, audioUrl, audioDurationSec, soundEffect, overlayPack } = opts;
 
   if (!Array.isArray(scenes) || scenes.length === 0) {
     throw new Error("No scenes provided");
@@ -52,6 +54,7 @@ export async function startRenderForScenes(opts: {
     audioUrl,
     audioDurationSec,
     soundEffect: soundEffectKey,
+    overlayPack,
     title,
   });
 

@@ -41,5 +41,23 @@ export function getOpenAIClient() {
   return openaiClient;
 }
 
-// Export the client directly for convenience
-export const openai = getOpenAIClient();
+/**
+ * The client, resolved on first property access rather than at import.
+ *
+ * This used to be `export const openai = getOpenAIClient()`, which ran the moment
+ * anything imported this module — including `next build`'s page-data collection.
+ * Under Nixpacks that was invisible because Railway injected the service's env
+ * vars into the build; the Docker build has no secrets (correctly), so the build
+ * died with "OPENAI_API_KEY is not configured" while compiling
+ * /api/analyze/script. A build must never need a runtime secret.
+ *
+ * A Proxy keeps every call site (`openai.chat.completions.create(...)`) unchanged.
+ * Methods are bound to the real client so `this` still works.
+ */
+export const openai = new Proxy({} as OpenAI, {
+  get(_target, prop) {
+    const client = getOpenAIClient() as unknown as Record<string | symbol, unknown>;
+    const value = client[prop];
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

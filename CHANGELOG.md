@@ -3,6 +3,103 @@
 Notable changes to the Sleep Stories app — especially infra/config changes and
 non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
+## 2026-07-31
+
+- **Jobs now have their own URLs, and the queue says whether a video is
+  rendering or rendered.** A job used to exist only as `/scenes?job=<taskId>` — a
+  query param on the editor that dumped the prebaked project into the global
+  session store. No stable link, raced the IndexedDB rehydrate on refresh, and
+  render status was buried inside `projectJson`. Added
+  `app/jobs/[taskId]/page.tsx` (+ `components/jobs/job-detail.tsx`), which reads
+  only — it never mounts the session store. `/scenes?job=` still works and is
+  still the edit path.
+  The state itself is derived in ONE place, `lib/jobs/render-state.ts`, called by
+  both `/api/jobs` and `/api/jobs/[taskId]` so a row and its page cannot
+  disagree. Derived on read, never stored — a stored copy goes stale the moment
+  Modal finishes, since nothing writes back to the row after the worker lets go.
+  Nine states; the two that matter are `rendering` and `rendered`, which the old
+  UI collapsed into one badge reading **"Ready"** — i.e. "ready for you to
+  render", when the render had already been started automatically.
+  `components/jobs/ready-tasks-badge.tsx` had the same bug: it counted
+  `status === "ready"`, advertising finished videos in the header while they were
+  still rendering. Now counts derived `rendered`.
+  Two deliberate asymmetries: the list route does **not** ask Modal for progress
+  (that would be one Modal call per row per poll) while the job page does — which
+  is what turns "Rendering" into a live percentage and a dead render into "Render
+  failed" rather than a bar that never moves; and "Open project to fix" is only
+  offered for `needs_images` / `needs_render`, since the editor is where the
+  Render button lives.
+- **Railway now builds this service with Docker, not Nixpacks.** Added
+  `Dockerfile` + `.dockerignore`. Reason: the `agents/` subprocesses need a
+  system python and the Nixpacks Next.js image has none, so
+  `GET /api/agents/health` (and anything that ever calls an agent) would fail in
+  prod. Runtime model is unchanged — still `npm run start`, so
+  `lib/jobs/worker.ts`'s long-lived drain loop is unaffected. The build gate runs
+  every agent on an empty payload plus the 42 offline checks, so a broken python
+  layer fails the BUILD rather than every job at runtime. `.dockerignore` keeps
+  `.env*` out of image layers. **`public/` is copied whole (~66MB)** even though
+  `public/overlays` and `public/sound-effects` are only read by
+  `render-modal/modal_app.py` at Modal-deploy time — an exclusion would break
+  silently the day a served asset lands under those paths.
+  ⚠️ **The image has never actually been built** (no docker daemon locally); the
+  gate's shell commands were verified by hand. First `railway up` is the real test.
+- **The ClickUp list this app writes to is named "Midnight Mysteries", not
+  "Sleep Stories".** `lib/jobs/config.ts` had the wrong label on
+  `901113872792`, which costs a workspace search every time someone reconciles
+  them. Also recorded there: `901113798933 "Space Cluster"` is *footage-collector's*
+  WW2 board despite the name, so **there is no space list** and a second genre
+  rides the existing board via the ingest payload.
+- **`STATUS_DONE` has never applied on this board — documented, not changed.**
+  Default is `"fc done"`, but Midnight Mysteries only has `to do` / `in progress`
+  / `complete`, and no `CLICKUP_STATUS_DONE` override exists in `.env.local` or on
+  Railway. The writeback is best-effort and caught, so nothing errors; a job whose
+  render has started simply stays "in progress" in ClickUp until a human sets it
+  complete. Left alone because choosing a real status changes the ClickUp
+  workflow. Fix by setting `CLICKUP_STATUS_DONE` to a status that exists, or by
+  adding `fc done` to the list.
+
+## 2026-07-30
+
+- **Added a Python agent layer under `agents/` (`script_context`,
+  `scene_splitter`, `scene_director`), plus `lib/agents/bridge.ts` and
+  `GET /api/agents/health`.** Nothing calls it yet — production still runs
+  `lib/scene-engine/no-gap-breakdown.ts`. Contract copied from the sibling
+  military-video repo: JSON on stdin, JSON on stdout, logs on stderr, no
+  fallback. Motivation was a second genre (space): the old single prompt owned
+  five decisions at once, and its `GLOBAL_CONTEXT_PROMPT` ordered the model to
+  pin an exact historical year, which is actively wrong for a cosmos script.
+  Genre now lives in `agents/scene_director/prompt.py` + `agents/shared/genres.py`
+  and nothing in `lib/` branches on it. Spec and live findings: `PLAN-AGENTS.md`.
+  `npm run check:agents` runs 42 offline checks (no API key needed).
+  ⚠️ **Railway is still on Nixpacks with no Python in the image**, so the health
+  route will 500 in prod until a Dockerfile lands — tracked in `session.md`.
+- **Porting `closeCoverageGaps` to Python surfaced two real bugs in the
+  TypeScript original.** (1) It located each snippet with
+  `chunkText.indexOf(snippet)` — always from position 0 — so on repeated
+  narration the second occurrence resolved to the first and the computed gaps
+  were garbage. The port uses a running cursor. (2) It skipped whitespace-only
+  gaps (`if (gap.trim())`); harmless there, but fatal once byte-exact
+  reassembly is the contract, because the model drops the inter-sentence space
+  on nearly every call — the first live run burned all 4 retry attempts on
+  "missing 2 characters". Both fixed in `agents/scene_splitter/checks.py` with
+  tests. The TS file still has both bugs; it is untouched and still in
+  production.
+- **A prebaked job's render was invisible in the UI, so the Render button
+  invited you to pay for a second copy of a multi-hour video.** The headless
+  worker starts the render itself (`lib/jobs/worker.ts:240`) and checkpoints the
+  `RenderJob` into the job's `project_json`, so a hydrated project arrives at
+  `/render` with `renders` already populated in the store. `RenderPanel` polled
+  those renders and wrote progress back to the store — but never displayed them.
+  The only visible list was the 7-day S3 history, which stays empty until the MP4
+  actually lands. Net effect: an in-flight auto-render showed as "No renders yet
+  in the last 7 days" next to an enabled **Render video** button. Fixes, all in
+  existing state (no new API call): `components/workflow/render-panel.tsx` now
+  shows a per-render status banner above everything else (rendering % / done +
+  MP4 link / failed), and a second take requires two clicks — the first arms it,
+  the second bills it, with the cost stated. `components/workflow/job-hydrator.tsx`
+  no longer says "render are ready below" for a job whose render already started;
+  it says the video is already rendering and you don't need to start one.
+
 ## 2026-07-19
 
 - **`sleep_jobs` retention never ran. The predicate was fine — nothing called

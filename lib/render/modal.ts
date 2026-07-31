@@ -20,6 +20,11 @@ export async function startModalRender(body: {
   audioUrl: string;
   audioDurationSec: number;
   soundEffect?: string;
+  /** Overlay pack — the filename prefix in public/overlays (`fire`, `space`).
+   *  Modal lists `<pack>-*.mp4` at render time and falls back to `fire` if the
+   *  pack matches nothing, so an unknown value degrades to the old behaviour
+   *  rather than rendering a video with no ambient motion. */
+  overlayPack?: string;
   title?: string;
 }): Promise<ModalStartResult> {
   const res = await fetch(`${RENDER_API_BASE}/render/start`, {

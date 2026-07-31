@@ -1,0 +1,20 @@
+# Build context only — what Docker ships to the daemon before the first COPY.
+# node_modules and .next are rebuilt inside the image; sending them makes every
+# build slower for no gain.
+node_modules
+.next
+.git
+
+# Never bake secrets into an image layer. Railway injects these at runtime.
+.env
+.env.*
+
+# The Modal ffmpeg renderer is deployed separately (push render-modal/, not this
+# repo — see CLAUDE.md). Its Python and assets are not part of the web image.
+# NOTE: public/overlays and public/sound-effects are NOT excluded — modal_app.py
+# reads them from the repo at Modal-deploy time, and this keeps one source of truth.
+render-modal
+
+__pycache__
+**/__pycache__
+*.pyc
