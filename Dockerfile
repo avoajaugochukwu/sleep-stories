@@ -20,6 +20,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+# The scene cut, checked here rather than in the runtime stage: it is TypeScript,
+# and runtime only carries the built output — no lib/, no scripts/.
+RUN npm run check:cut
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
@@ -69,8 +72,6 @@ RUN set -e \
     && cd agents \
     && echo '{"script":""}' | python3 -m script_context \
         | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('summary')=='' and d.get('genre'), d; print('[build] script_context OK')" \
-    && echo '{"chunk_text":""}' | python3 -m scene_splitter \
-        | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('snippets')==[], d; print('[build] scene_splitter OK')" \
     && echo '{"scenes":[]}' | python3 -m scene_director \
         | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('scenes')==[], d; print('[build] scene_director OK')"
 
@@ -78,7 +79,7 @@ RUN set -e \
 # key and no network, so there is no excuse for them to be green only on a laptop.
 RUN set -e \
     && cd agents \
-    && for a in script_context scene_splitter scene_director; do python3 $a/test_$a.py; done
+    && for a in script_context scene_director; do python3 $a/test_$a.py; done
 SHELL ["/bin/sh", "-c"]
 
 EXPOSE 8080
