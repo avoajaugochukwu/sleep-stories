@@ -2,13 +2,13 @@
 
 Ported from ../../../video-agents/military/agents/shared/config.py, minus the
 codex-subscription switch: that pays for itself there because `identify` makes
-~174 vision calls per job. Here the whole pipeline is ~5 model calls against 176
+~174 vision calls per job. Here a job is ~31 model calls against a few hundred
 image generations, so image spend dominates and the switch would be complexity
-for no saving. See PLAN-AGENTS.md.
+for no saving. See agents/CLAUDE.md, "Cost".
 
-Model matches the app's own `lib/ai/openai.ts` DEFAULT_MODEL — a scene written by
-an agent and a scene written by the legacy TS path should not differ because they
-asked different models. Env-overridable so a deploy can move both together.
+Model matches the app's own `lib/ai/openai.ts` DEFAULT_MODEL — the story title is
+still written in TypeScript and should not come from a different model than the
+scenes it sits over. Env-overridable so a deploy can move both together.
 
 Per-agent overrides (effort, attempts) live in that agent's own config.py so one
 agent can never change another's cost by editing this file.

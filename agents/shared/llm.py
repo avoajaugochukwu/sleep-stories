@@ -3,7 +3,7 @@
 Ported from military's shared/llm.py with two things removed on purpose:
 
   - the codex-subscription backend — no call volume here justifies it
-    (PLAN-AGENTS.md, "Cost")
+    (agents/CLAUDE.md, "Cost")
   - `call_with_tools` — no agent in this app has a tool. Military's own rule is
     "tools are the exception, not the pattern"; an unused tool loop is a hundred
     lines nobody tests.

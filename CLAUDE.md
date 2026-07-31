@@ -19,8 +19,15 @@ deploy and no Lambda function to keep warm. **Never** reintroduce `@remotion/*`,
 account and must stay untouched. To redeploy the renderer, push the Modal app
 (`render-modal/`), not this repo. `deploy:site` now only provisions the S3 bucket.
 
+**A build must never need a runtime secret.** `next build` evaluates route
+modules, so a client constructed at import (rather than behind a lazy getter)
+kills the build on a missing key. Verify: move `.env.local` aside,
+`npm run build`, move it back.
+
 **Type-check after edits.** Run `npx tsc --noEmit` after editing any `.ts`/`.tsx`
-(the Next build also type-checks, but tsc is faster for a quick pass).
+(the Next build also type-checks, but tsc is faster for a quick pass). For the
+scene path also run `npm run check:agents` (32 offline) and `npm run check:cut`
+(14).
 
 **Update `docs/CHANGELOG.md` — do not ask.** After any infra/config change
 (bucket, env vars, Modal/Railway deploy, agent prompts or caps) or any
@@ -76,8 +83,11 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 - **Hydration:** opening `/scenes?job=<taskId>` runs `JobHydrator`, which polls
   the job and loads the prebaked `WorkflowExport` through the existing
   import path — so images + audio persist for re-render and thumbnail picking.
-- **Boards:** `lib/jobs/config.ts` maps ClickUp list `901113872792`
-  ("Sleep Stories"). Status labels default to `in progress`/`fc done`/`complete`,
+- **Boards:** `lib/jobs/config.ts` maps ClickUp list `901113872792`, which
+  ClickUp names **"Midnight Mysteries"**, not "Sleep Stories". The
+  plausible-looking `901113798933 "Space Cluster"` is *footage-collector's* WW2
+  board despite the name — there is no space list, genre rides inference.
+  Status labels default to `in progress`/`fc done`/`complete`,
   overridable via `CLICKUP_STATUS_IN_PROGRESS|DONE|COMPLETE` env.
 - **Env (all on Railway + `.env.local`):** `INGEST_SECRET`, `SUPABASE_DB_URL`,
   `CLICKUP_API`, `BASE_ROW_URL`, `BASEROW_EMAIL`,
@@ -97,10 +107,8 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 
 ## Where to look
 
-- **`HANDOFF.md` — read this first in a new session.** Deployed-vs-local
-  divergence, uncommitted work, ordered next steps, and the facts worth not
-  relearning. `session.md` is the running log; `docs/CHANGELOG.md` is the dated
-  history.
+- `docs/CHANGELOG.md` — dated history, newest first. The *why* behind most of
+  the odd-looking decisions in here is in there.
 - `agents/` — Python agent layer (`script_context`, `scene_director`) +
   `agents/CLAUDE.md` for its operating rules. **This is the production scene
   path**; `lib/scene-engine/script-to-scenes.ts` is the orchestrator that cuts
@@ -112,7 +120,14 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   and every snippet is a slice of the original so `snippets.join('') === script`.
 - Checks: `npm run check:agents` (32 offline, no key/network) and
   `npm run check:cut` (14).
-- `render-modal/` — the Modal ffmpeg renderer (Python) that composites the video.
+- `lib/jobs/scene-image.ts` — image generation. `STYLE_PREFIX` is prepended at
+  generation time, after `stripLeadingStyle()` strips a leading copy, so
+  `visual_prompt` stays the raw prompt and retries are idempotent. Storing the
+  final prompt back into `visual_prompt` double-prefixed 44% of scenes once.
+- `render-modal/` — the Modal ffmpeg renderer (Python) that composites the
+  video. Overlay clips are `<pack>-*.mp4` and their durations are **ffprobed at
+  render time**, not hardcoded — the duration is a modulo for the source seek,
+  and a stale constant makes the clip jump.
 - `lib/render/modal.ts` — HTTP client for the Modal renderer (start + poll).
 - `lib/remotion/` — `start-render.ts` (pick a title + kick Modal, shared by UI
   route + worker) and `sound-effects.ts` (the ambient-bed labels). Dir keeps its

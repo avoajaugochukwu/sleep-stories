@@ -1,15 +1,13 @@
 # Ported from ../../../video-agents/military/Dockerfile, minus the Codex CLI —
-# no call volume here justifies the subscription backend (PLAN-AGENTS.md, "Cost"),
-# so there is no /data volume and no entrypoint script either.
+# no call volume here justifies the subscription backend (agents/CLAUDE.md,
+# "Cost"), so there is no /data volume and no entrypoint script either.
 #
-# Railway auto-detects this file and builds via Docker instead of Nixpacks. That
-# is the point: Nixpacks' default Next.js build has no system python, and the
-# agents/ subprocesses need one. **Adding this file CHANGES how this service
-# builds on Railway.**
+# Railway builds this service from this file. It needs a system python for the
+# agents/ subprocesses, and the build gate below runs them, so a broken python
+# layer fails the BUILD rather than every job at runtime.
 #
 # The ingest worker (lib/jobs/worker.ts) is an in-process drain loop that needs a
-# long-lived server. `npm run start` gives it one exactly as Nixpacks did — this
-# is a build change, not a runtime-model change.
+# long-lived server; `npm run start` gives it one.
 # syntax=docker/dockerfile:1.7
 
 FROM node:22-bookworm-slim AS deps

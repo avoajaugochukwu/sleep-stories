@@ -7,7 +7,7 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
 `no-gap-breakdown.ts` / `sleep-scene-prompt.ts` / `script-splitter.ts` / the `scene_splitter` agent
 (deleted 2026-07-31).
 
-**Current architecture: `CLAUDE.md`.** State of play: `HANDOFF.md`.
+**Current architecture: `CLAUDE.md`.** Rules for the Python layer: `agents/CLAUDE.md`.
 
 ## 2026-07-31
 
@@ -73,11 +73,12 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
   percentage and a dead render into "Render failed" rather than a bar that never moves; and "Open
   project to fix" is offered only for `needs_images` / `needs_render`, since the editor is where the
   Render button lives.
-- **Railway builds this service with Docker, not Nixpacks.** Added `Dockerfile` + `.dockerignore`.
-  Reason: `agents/` subprocesses need a system python; the Nixpacks Next.js image has none, so
-  `GET /api/agents/health` would fail in prod. Runtime unchanged (`npm run start`), so `worker.ts`'s
-  drain loop is unaffected. The build gate runs every agent on an empty payload plus the 42 offline
-  checks, so a broken python layer fails the BUILD, not every job at runtime; `.dockerignore` keeps
+- **Railway builds this service from a `Dockerfile`.** Added `Dockerfile` + `.dockerignore`. Reason:
+  the `agents/` subprocesses need a system python in the image, or
+  `GET /api/agents/health` (and every job) fails in prod. Runtime unchanged (`npm run start`), so
+  `worker.ts`'s drain loop is unaffected. The build gate runs every agent on an empty payload plus
+  the offline checks, so a broken python layer fails the BUILD, not every job at runtime;
+  `.dockerignore` keeps
   `.env*` out of image layers. **`public/` is copied whole (~66MB)** even though `public/overlays`
   and `public/sound-effects` are only read by `render-modal/modal_app.py` at Modal-deploy time — an
   exclusion would break silently the day a served asset lands there. ⚠️ **The image has never
