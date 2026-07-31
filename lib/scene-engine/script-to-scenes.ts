@@ -8,7 +8,7 @@
 // the scene durations below track the narration clock. See `agents/CLAUDE.md`.
 // ============================================================================
 
-import { cutScript, CUT_CONSTANTS } from './cut-script';
+import { cutScript, WORDS_PER_SECOND } from './cut-script';
 import { runScriptContext, runSceneDirector } from '@/lib/agents/bridge';
 
 const MIN_SCENE_DURATION = 5;
@@ -65,7 +65,7 @@ export async function breakdownScript(script: string): Promise<BreakdownResult> 
         negative_prompt: d.negative_prompt?.trim() || undefined,
         duration: Math.max(
           MIN_SCENE_DURATION,
-          Math.round(countWords(snippet) / CUT_CONSTANTS.WORDS_PER_SECOND)
+          Math.round(countWords(snippet) / WORDS_PER_SECOND)
         ),
       };
     }),

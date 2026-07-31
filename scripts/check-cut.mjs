@@ -3,16 +3,15 @@
 //
 //     npm run check:cut
 //
-// Every case asserts the same thing in the end: the snippets concatenate back
-// into the input. That is what the scene durations depend on, and drift never
+// Most cases assert the same thing: the snippets concatenate back into the
+// input. That is what the scene durations depend on, and drift never
 // self-corrects, so it is worth a check that runs in a second.
 
 import assert from 'node:assert/strict';
-import { cutScript, CUT_CONSTANTS } from '../lib/scene-engine/cut-script.ts';
+import { cutScript } from '../lib/scene-engine/cut-script.ts';
 
-const words = (t) => t.trim().split(/\s+/).filter(Boolean).length;
-const sentence = (i) => `Sentence number ${i} carries ${'word '.repeat(20)}to its end. `;
-const script = (n) => Array.from({ length: n }, (_, i) => sentence(i)).join('');
+const sentences = (n) =>
+  Array.from({ length: n }, (_, i) => `Sentence number ${i} runs to its end.`).join(' ');
 
 const checks = {
   'empty script yields no scenes'() {
@@ -28,61 +27,50 @@ const checks = {
     assert.deepEqual(cutScript(s), [s]);
   },
 
-  'one short sentence is one scene'() {
-    const s = 'A quiet room.';
-    assert.deepEqual(cutScript(s), [s]);
+  'fewer sentences than a scene holds is one scene'() {
+    const s = sentences(3);
+    assert.deepEqual(cutScript(s, 4), [s]);
   },
 
-  'snippets rejoin the script exactly'() {
-    const s = script(60);
-    assert.equal(cutScript(s).join(''), s);
-  },
-
-  'newlines and blank lines survive'() {
-    const s = 'One.\n\nTwo.\nThree.\n\n\nFour.';
-    assert.equal(cutScript(s).join(''), s);
-  },
-
-  'leading and trailing whitespace survive'() {
-    const s = '  A quiet room. The lamp burned low.  ';
-    assert.equal(cutScript(s).join(''), s);
-  },
-
-  'quotes and brackets do not break sentence detection'() {
-    const s = '"Stop," he said. (He did not stop.) Then the rain came.';
-    assert.equal(cutScript(s).join(''), s);
-  },
-
-  'scenes land near the target length'() {
-    const target = CUT_CONSTANTS.TARGET_SECONDS * CUT_CONSTANTS.WORDS_PER_SECOND;
-    const scenes = cutScript(script(60));
-    // The last scene absorbs the remainder, so check the rest.
-    for (const scene of scenes.slice(0, -1)) {
-      assert.ok(
-        words(scene) >= target,
-        `scene of ${words(scene)} words is under the ${target}-word target`,
-      );
-      assert.ok(
-        words(scene) < target * 2,
-        `scene of ${words(scene)} words overran the target badly`,
-      );
+  'cuts after every Nth sentence'() {
+    const scenes = cutScript(sentences(12), 4);
+    assert.equal(scenes.length, 3);
+    for (const scene of scenes) {
+      assert.equal((scene.match(/\./g) ?? []).length, 4, `wrong sentence count: ${scene}`);
     }
   },
 
-  'a short tail is merged rather than left dangling'() {
-    const min = CUT_CONSTANTS.MIN_SECONDS * CUT_CONSTANTS.WORDS_PER_SECOND;
-    const s = script(20) + 'Yes.';
-    const scenes = cutScript(s);
-    assert.equal(scenes.join(''), s);
-    assert.ok(
-      words(scenes.at(-1)) >= min,
-      `tail scene of ${words(scenes.at(-1))} words should have merged`,
-    );
+  'a remainder of one sentence folds into the previous scene'() {
+    const scenes = cutScript(sentences(9), 4);
+    assert.equal(scenes.length, 2, scenes.map((s) => s.length));
+    assert.equal((scenes.at(-1).match(/\./g) ?? []).length, 5);
   },
 
-  'one enormous sentence is never split mid-narration'() {
-    const s = `${'word '.repeat(400)}end.`;
-    assert.deepEqual(cutScript(s), [s]);
+  'a remainder of two or three sentences stands alone'() {
+    assert.equal(cutScript(sentences(10), 4).length, 3);
+    assert.equal(cutScript(sentences(11), 4).length, 3);
+  },
+
+  'snippets rejoin the script exactly'() {
+    for (const n of [1, 2, 5, 9, 12, 13, 60, 61]) {
+      const s = sentences(n);
+      assert.equal(cutScript(s, 4).join(''), s, `n=${n}`);
+    }
+  },
+
+  'newlines and blank lines survive'() {
+    const s = 'One.\n\nTwo.\nThree.\n\n\nFour. Five. Six.';
+    assert.equal(cutScript(s, 4).join(''), s);
+  },
+
+  'leading and trailing whitespace survive'() {
+    const s = `  ${sentences(9)}  `;
+    assert.equal(cutScript(s, 4).join(''), s);
+  },
+
+  'quotes and brackets do not break sentence detection'() {
+    const s = '"Stop," he said. (He did not stop.) Then the rain came. Then silence.';
+    assert.equal(cutScript(s, 4).join(''), s);
   },
 
   'abbreviations are not treated as sentence ends'() {
@@ -94,29 +82,24 @@ const checks = {
       'The U.S. Army arrived before the frost.',
       'The lamp cost $4.50 in the village shop.',
     ]) {
-      assert.deepEqual(cutScript(s), [s], `split inside: ${s}`);
+      assert.deepEqual(cutScript(s, 4), [s], `split inside: ${s}`);
     }
   },
 
-  'a repeated phrase does not confuse the cut'() {
-    // The bug the old indexOf-based code had. Slicing by offset cannot hit it,
-    // which is the point of doing it this way.
-    const s = 'the night was still. A fox crossed the road. the night was still. Then dawn.';
-    assert.equal(cutScript(s).join(''), s);
+  'a repeated sentence does not confuse the cut'() {
+    // The bug the old indexOf-from-zero code had. Locating forward-only from a
+    // running cursor is what makes a repeated line resolve to its own position.
+    const s = 'The night was still. A fox crossed. The night was still. Then dawn. And rain.';
+    assert.equal(cutScript(s, 2).join(''), s);
+    assert.equal(cutScript(s, 2).length, 2);
   },
 
-  'a realistic script produces a sane scene count'() {
-    // ~2h of narration: 18000 words at 150wpm. Scenes are ~20s, so expect a few
-    // hundred, not a handful and not one per sentence.
-    const s = script(600);
-    const scenes = cutScript(s);
+  'a two-hour script produces a sane scene count'() {
+    // ~1200 sentences. At 4 per scene that is 300 scenes of ~20-25s.
+    const s = sentences(1200);
+    const scenes = cutScript(s, 4);
     assert.equal(scenes.join(''), s);
-    const totalSeconds = words(s) / CUT_CONSTANTS.WORDS_PER_SECOND;
-    const expected = totalSeconds / CUT_CONSTANTS.TARGET_SECONDS;
-    assert.ok(
-      scenes.length > expected * 0.5 && scenes.length < expected * 1.5,
-      `${scenes.length} scenes for ~${Math.round(expected)} expected`,
-    );
+    assert.equal(scenes.length, 300);
   },
 };
 

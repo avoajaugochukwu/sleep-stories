@@ -91,7 +91,7 @@ stdin, JSON on stdout, logs on stderr, exit nonzero on failure. Read
 
 | step | job | state |
 |---|---|---|
-| `cut-script.ts` | script → scene snippets. **No model.** `compromise` for sentence bounds, greedy ~20s grouping, every snippet a slice | 14 checks |
+| `cut-script.ts` | script → scene snippets. **No model.** `compromise` for sentence bounds, a cut every 4 sentences, every snippet a slice | 14 checks |
 | `script_context` | whole-script grounding **+ genre classification** | 15 checks, live 4/4 |
 | `scene_director` | snippets → `visual_context` + `negative_prompt` | 17 checks, both genres live |
 

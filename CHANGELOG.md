@@ -17,10 +17,13 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
   scenes tile the script: images are per-scene, so a cut landing mid-thought
   costs nothing measurable. So the model call bought a marginally tidier cut for
   a round trip per chunk plus a failure mode. Now `lib/scene-engine/cut-script.ts`
-  groups sentences to ~20s greedily, merges a short tail, and asserts
-  `snippets.join('') === script`. ~60 lines, no model, no subprocess, no retry,
-  cannot fail. `npm run check:cut` covers it (14 assertions, no framework —
-  `node --experimental-strip-types` runs the TypeScript directly).
+  cuts after every 4th sentence — `SENTENCES_PER_SCENE`, the one knob — folds a
+  one-sentence remainder back, and asserts `snippets.join('') === script`. No
+  word-budget targeting either: sleep narration is even-paced, so 4 sentences is
+  20-25s reliably enough, and a budget was arithmetic in place of a constant.
+  No model, no subprocess, no retry, cannot fail. `npm run check:cut` covers it
+  (14 assertions, no framework — `node --experimental-strip-types` runs the
+  TypeScript directly).
 - **`lib/scene-engine/script-splitter.ts` is deleted**, folded into
   `cut-script.ts`. `compromise` stays, and it earns its place: a regex on
   `[.!?]\s` splits "Mr. Smith", "Dr. Reed", "the U.S. Army" and "$4.50"
