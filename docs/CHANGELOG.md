@@ -32,9 +32,10 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
   A sentence it mangles costs one candidate cut. The deleted file had a quiet bug: it rebuilt each
   chunk as `sentences.join(' ')`, so the old "byte-exact" contract was really against a rejoined
   copy.
-- **`scene_director` takes every scene in ONE spawn and chunks internally** (`CHUNK_SIZE = 8`, 8 in
+- **`scene_director` takes every scene in ONE spawn and chunks internally** (`CHUNK_SIZE = 12`, 8 in
   flight) instead of TS spawning it per chunk. Batch size decides what a single model call sees, so
-  it changes output and belongs beside the prompt — it was in `lib/`, two directories away.
+  it changes output and belongs beside the prompt — it was in `lib/`, two directories away. 12 is
+  untested on a real job; if neighbouring scenes start repeating imagery, drop it back to 8.
 - **`scene_director` fills an undirected scene from its nearest directed neighbour instead of
   failing the video.** After the per-chunk bank-and-repair loop it retries stragglers solo, then
   salvages what is still missing and logs `SALVAGED` — Modal does the same a layer down (a scene
