@@ -7,7 +7,7 @@
 // the Baserow row when done. Survives restarts by re-queuing interrupted jobs on
 // first touch (ensureResumed) — there is no external queue.
 
-import { breakdownScript } from "@/lib/scene-engine/no-gap-breakdown";
+import { breakdownScript } from "@/lib/scene-engine/script-to-scenes";
 import { generateSceneImage } from "./scene-image";
 import { getAudioDurationSec } from "./audio-duration";
 import { startRenderForScenes } from "@/lib/remotion/start-render";
@@ -42,8 +42,9 @@ function buildJobExport(args: {
   scenes: Scene[];
   storyboard: StoryboardScene[];
   renders: RenderJob[];
+  overlayPack?: string;
 }): WorkflowExport {
-  const { script, audioUrl, durationSec, scenes, storyboard, renders } = args;
+  const { script, audioUrl, durationSec, scenes, storyboard, renders, overlayPack } = args;
   return {
     app: "sleep-stories",
     version: WORKFLOW_FILE_VERSION,
@@ -59,6 +60,7 @@ function buildJobExport(args: {
       storyboardScenes: storyboard,
       audio: { url: audioUrl, durationSec },
       renders,
+      overlayPack,
     },
   };
 }
@@ -98,16 +100,20 @@ async function processJob(job: SleepJob): Promise<void> {
     const prior = job.projectJson?.state;
     let scenes: Scene[];
     let storyboard: StoryboardScene[];
+    let overlayPack: string | undefined;
     if (
       prior?.scenes?.length &&
       prior.storyboardScenes?.length === prior.scenes.length
     ) {
       scenes = prior.scenes;
       storyboard = prior.storyboardScenes;
+      overlayPack = prior.overlayPack;
       const have = storyboard.filter((s) => s.image_url).length;
       console.log(`[jobs ${taskId}] resuming — ${have}/${scenes.length} images already done`);
     } else {
-      const { scenes: broken } = await breakdownScript(job.script);
+      const { scenes: broken, genre, overlayPack: pack } = await breakdownScript(job.script);
+      overlayPack = pack;
+      console.log(`[jobs ${taskId}] genre=${genre} overlays=${pack}`);
       scenes = broken.map((s) => ({
         scene_number: s.scene_number,
         script_snippet: s.script_snippet,
@@ -119,7 +125,7 @@ async function processJob(job: SleepJob): Promise<void> {
       // Checkpoint the breakdown immediately: a restart before any image still
       // resumes from here rather than re-running the (non-deterministic) LLM.
       await updateJob(taskId, {
-        projectJson: buildJobExport({ script: job.script, audioUrl: job.audioUrl, durationSec: 0, scenes, storyboard, renders: [] }),
+        projectJson: buildJobExport({ script: job.script, audioUrl: job.audioUrl, durationSec: 0, scenes, storyboard, renders: [], overlayPack }),
       });
     }
     const total = scenes.length;
@@ -141,7 +147,7 @@ async function processJob(job: SleepJob): Promise<void> {
 
     const checkpoint = (durationSec = 0, renders: RenderJob[] = []) =>
       updateJob(taskId, {
-        projectJson: buildJobExport({ script: job.script, audioUrl, durationSec, scenes, storyboard, renders }),
+        projectJson: buildJobExport({ script: job.script, audioUrl, durationSec, scenes, storyboard, renders, overlayPack }),
       });
 
     const reportProgress = () =>
@@ -216,7 +222,7 @@ async function processJob(job: SleepJob): Promise<void> {
     if (gaps > 0) {
       await updateJob(taskId, {
         status: "needs_images",
-        projectJson: buildJobExport({ script: job.script, audioUrl, durationSec: 0, scenes, storyboard, renders: [] }),
+        projectJson: buildJobExport({ script: job.script, audioUrl, durationSec: 0, scenes, storyboard, renders: [], overlayPack }),
         completed: total - gaps,
         failed: gaps,
         progress: `${gaps} image(s) failed after retries — open project to fix & render`,
@@ -248,6 +254,7 @@ async function processJob(job: SleepJob): Promise<void> {
         audioUrl,
         audioDurationSec: durationSec,
         title: job.name === "Untitled" ? undefined : job.name,
+        overlayPack,
       });
       renderJob = {
         renderId: render.renderId,
@@ -268,6 +275,7 @@ async function processJob(job: SleepJob): Promise<void> {
       scenes,
       storyboard,
       renders: [renderJob],
+      overlayPack,
     });
 
     await updateJob(taskId, {

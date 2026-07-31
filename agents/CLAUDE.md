@@ -54,11 +54,30 @@ video instead of failing the job.
 Every problem string names the offending id and states the fix. These strings go
 verbatim into the repair prompt, so "invalid field" is useless there.
 
-**One sanctioned coercion: `scene_splitter`'s gap closing.** Reassigning an
-uncovered run of text to its neighbouring snippet is a *deterministic repair with
-one correct answer*, not a guess — it is the ported `closeCoverageGaps`, and it
-is what makes byte-exact coverage achievable at all. It runs before validation,
-and validation still has to pass afterwards.
+## Better than validating: ask whether the model is needed at all
+
+There used to be a third agent, `scene_splitter`. Its story is the one to
+remember here.
+
+1. **v1** had the model copy each scene's text out verbatim, then healed the
+   copy, closed coverage gaps, validated the reassembly and retried four times.
+   Six mechanisms, every one of them undoing damage that was only possible
+   *because* the model had been handed the text.
+2. **v2** asked for the first few words of each scene and sliced the original
+   string at them. Lossless coverage stopped being a rule to enforce and became
+   the only thing the code could produce. All six mechanisms deleted.
+3. **v3** noticed nothing downstream cares *where* a scene starts — one image
+   per scene, so a cut landing mid-thought costs nothing measurable. The whole
+   agent was deleted for 30 lines of sentence-grouping in
+   `lib/scene-engine/cut-script.ts`.
+
+Two questions, in this order, before writing a validator:
+
+- **Does this need a model?** Not "would a model do it better" — would anything
+  downstream *measure* the difference.
+- If yes: **can it be asked for a decision** (where, which, how many) rather
+  than content that has to survive a round trip? Then the check, the repair
+  loop and the failure mode all disappear together.
 
 ## Bank the good
 
@@ -66,14 +85,26 @@ Where checks can be keyed per item, resend **only** the items that failed. In
 `scene_director` that is per scene id: a scene that validated is banked and never
 re-requested, so a good answer cannot be corrupted by someone else's retry.
 
-## An agent failing fails the job
+## An agent failing fails the job — unless there is a right answer without it
 
-Each agent is the sole writer of what it produces, so a failure **throws**. A
-loud stop beats a silent downgrade.
+Each agent is the sole writer of what it produces, so by default a failure
+**throws**. A loud stop beats a silent downgrade: a plausible-looking decision
+nobody made is worse than a failure, because only the failure gets fixed.
 
-**No agent here is allowed to degrade.** Military grants `graphics_director` an
-exception because graphics are additive polish; nothing in this app is. A scene
-with no image prompt is a scene with no image.
+One agent degrades, and it earns it by having a correct answer available that
+involves no guessing:
+
+- **`scene_director` fills an undirected scene from its nearest directed
+  neighbour** and logs `SALVAGED`. Modal already does this one layer down — a
+  scene whose image failed reuses the previous scene's image so audio coverage
+  is never lost. Repeating one shot in a two-hour sleep video is a dull minute;
+  a failed job is no video. It still throws if it resolved *zero* scenes, since
+  then there is no neighbour to inherit from.
+
+`script_context` has no such answer and still throws.
+
+Do not extend this list without the same justification: a degradation is only
+sanctioned when the fallback is *derived*, never when it is *plausible*.
 
 Note what did NOT become an agent for this reason: the story title
 (`lib/scene-engine/story-text.ts`) has a legitimate heuristic fallback and a
@@ -124,9 +155,17 @@ paid on every chunk of every video.
 Set it in the agent's own `config.py`, never by editing `shared/config.py` out
 from under another agent.
 
-`shared/config.py` MODEL tracks `lib/ai/openai.ts` DEFAULT_MODEL on purpose: a
-scene written by an agent and one written by the legacy TS path should not differ
-because they asked different models.
+`shared/config.py` MODEL tracks `lib/ai/openai.ts` DEFAULT_MODEL on purpose: the
+story title is still written in TypeScript, and it should not come from a
+different model than the scenes it sits over.
+
+## Batch size is a prompt decision, so it lives here
+
+Every agent that works over many items chunks them **itself** — the TS caller
+hands over the whole script or the whole scene list in one spawn. Chunk size
+decides what a single model call sees, which changes the output; parking it in
+`lib/` puts a prompt knob in a file with no prompt in it, two directories from
+the thing it affects.
 
 ## Dependencies ship in the app container
 
@@ -143,12 +182,24 @@ Keep it minimal — currently just `openai`.
 5. TS bridge call with the `[agents]` logging above.
 6. Register it in `app/api/agents/health/route.ts`.
 
-## Prove before wiring
+## These agents ARE production
 
-A new agent replacing existing output gets A/B'd against the current TS path on
-real jobs before it is wired in. **Nothing in this folder is wired in yet** —
-`lib/scene-engine/no-gap-breakdown.ts` still drives production.
+All three are wired in. `lib/scene-engine/script-to-scenes.ts` is three bridge
+calls and a word-count sum — no prompt, no LLM call, no chunking of its own.
+There is no TypeScript path left to fall back to, so a change here changes every
+video.
 
-`scene_splitter` is the one that can break existing videos: audio alignment
-depends on snippets reconstructing the script exactly. Its A/B is a byte-for-byte
-diff of the reassembled script on a real 2-hour job, not a spot check.
+The old TS path was deleted without an A/B — a deliberate call, refine here
+instead. The cost is that the first real job after a change is the test.
+Reassembly is no longer the thing to watch (it is structural now); what to watch
+is **cut quality** — the `[splitter]` line reports how many chunks fell back to
+mechanical cuts, and a number that is not zero means the markers are not landing.
+
+```bash
+# after a job completes — snippet chars must equal script chars
+curl -s https://sleep-stories.up.railway.app/api/jobs/<taskId> -o /tmp/j.json
+python3 -c "
+import json; d=json.load(open('/tmp/j.json'))
+s=d['projectJson']['state']
+print(sum(len(x['script_snippet']) for x in s['storyboardScenes']), 'vs', len(s['script']['content']))"
+```

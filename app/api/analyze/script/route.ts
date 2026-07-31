@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { NextRequest } from 'next/server';
-import { breakdownScript } from '@/lib/scene-engine/no-gap-breakdown';
+import { breakdownScript } from '@/lib/scene-engine/script-to-scenes';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
 
       try {
-        const { scenes, totalChunks } = await breakdownScript(script);
+        const { scenes, genre } = await breakdownScript(script);
 
         console.log(
-          `[Script Analysis] ${totalChunks} chunks -> ${scenes.length} no-gap scenes`
+          `[Script Analysis] genre=${genre} -> ${scenes.length} scenes`
         );
 
         // Map to the scene shape the frontend already consumes.

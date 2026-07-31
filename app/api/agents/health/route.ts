@@ -31,7 +31,6 @@ const PROBE_TIMEOUT_MS = 30_000;
 /** agent module -> [empty payload, key its result must carry] */
 const AGENTS: Record<string, [unknown, string]> = {
   script_context: [{ script: '' }, 'summary'],
-  scene_splitter: [{ chunk_text: '' }, 'snippets'],
   scene_director: [{ scenes: [] }, 'scenes'],
 };
 

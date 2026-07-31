@@ -1,7 +1,7 @@
 # Plan — Python agent layer
 
 Status: **all three agents built and live-tested. NOT wired into the pipeline.**
-The running app is unchanged — `lib/scene-engine/no-gap-breakdown.ts` still
+The running app is unchanged — `lib/scene-engine/script-to-scenes.ts` still
 drives production, and nothing imports `lib/agents/bridge.ts` yet.
 
 | Piece | State |
@@ -147,7 +147,7 @@ unless the genre declares itself abstract.
 **Out:** `{ "snippets": ["...", "..."] }` — nothing else. No visuals.
 
 This agent's goal is mechanical, so it is where the guarantees live. Port
-`healSnippet` and `closeCoverageGaps` from `no-gap-breakdown.ts` into
+`healSnippet` and `closeCoverageGaps` from `script-to-scenes.ts` into
 `checks.py`: they are already the right logic on the right side of the line,
 just written in the wrong language and entangled with the creative prompt.
 
@@ -272,7 +272,7 @@ gate has NOT been met: one short chunk is not a 2-hour script.
 ### What "not wired" means concretely
 
 Nothing imports `lib/agents/bridge.ts`. To actually use these,
-`lib/scene-engine/no-gap-breakdown.ts` has to call the agents instead of its own
+`lib/scene-engine/script-to-scenes.ts` has to call the agents instead of its own
 two `openai.chat.completions.create` calls, and `lib/jobs/worker.ts` has to pass a
 genre through. Neither change is made. Do them one at a time, behind the gates
 above.

@@ -97,10 +97,17 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 - **`HANDOFF.md` — read this first in a new session.** Deployed-vs-local
   divergence, uncommitted work, ordered next steps, and the facts worth not
   relearning. `session.md` is the running log; `PLAN-AGENTS.md` is the agent spec.
-- `agents/` — Python agent layer (`script_context`, `scene_splitter`,
-  `scene_director`) + `agents/CLAUDE.md` for its operating rules. Built and
-  live-tested but **wired into nothing**; `lib/scene-engine/no-gap-breakdown.ts`
-  still drives production. `npm run check:agents` runs 47 offline checks.
+- `agents/` — Python agent layer (`script_context`, `scene_director`) +
+  `agents/CLAUDE.md` for its operating rules. **This is the production scene
+  path**; `lib/scene-engine/script-to-scenes.ts` is the orchestrator that cuts
+  the script and calls them through `lib/agents/bridge.ts`. Prompts, caps and
+  denylists live in `agents/`, never in `lib/`. Each agent batches internally —
+  TS hands over the whole script or the whole scene list in one spawn.
+- `lib/scene-engine/cut-script.ts` — the scene cut. **No model**: sentence
+  boundaries from `compromise`, greedy grouping to ~20s, and every snippet is a
+  slice of the original so `snippets.join('') === script`.
+- Checks: `npm run check:agents` (32 offline, no key/network) and
+  `npm run check:cut` (14).
 - `render-modal/` — the Modal ffmpeg renderer (Python) that composites the video.
 - `lib/render/modal.ts` — HTTP client for the Modal renderer (start + poll).
 - `lib/remotion/` — `start-render.ts` (pick a title + kick Modal, shared by UI

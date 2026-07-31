@@ -25,7 +25,7 @@ line this app is about to cross.
   No new API call — the state was already in the store, nothing rendered it.
 - **Built the three agents + the bridge + the health route.** 42 offline checks,
   both genres verified live end-to-end. **Not wired in** — production still runs
-  `lib/scene-engine/no-gap-breakdown.ts`. Status table and live findings are in
+  `lib/scene-engine/script-to-scenes.ts`. Status table and live findings are in
   `PLAN-AGENTS.md`.
 - **Dockerfile + `.dockerignore` written.** Railway will build via Docker instead
   of Nixpacks the next time this service deploys — that is the point (Nixpacks'
@@ -59,7 +59,7 @@ Measured, not assumed:
 | Piece | Lines | Owns |
 |---|---|---|
 | `lib/scene-engine/script-splitter.ts` | 58 | Deterministic chunking, 40 sentences/chunk |
-| `lib/scene-engine/no-gap-breakdown.ts` | 282 | Both LLM calls + `healSnippet` + `closeCoverageGaps` |
+| `lib/scene-engine/script-to-scenes.ts` | 282 | Both LLM calls + `healSnippet` + `closeCoverageGaps` |
 | `lib/scene-engine/sleep-scene-prompt.ts` | 90 | The whole creative brief, one string |
 | `lib/scene-engine/story-text.ts` | 72 | Title + caption text |
 | `lib/jobs/scene-image.ts` | — | `STYLE_PREFIX`, `BASE_NEGATIVE`, image call |

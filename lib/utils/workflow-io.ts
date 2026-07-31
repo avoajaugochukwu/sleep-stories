@@ -29,6 +29,12 @@ export interface WorkflowState {
   storyboardScenes: StoryboardScene[];
   audio: AudioAsset | null;
   renders: RenderJob[];
+  /**
+   * Overlay filename prefix, from the genre `script_context` inferred. Optional
+   * and not in the store's partialize: only the headless worker knows it, and a
+   * file exported from the UI simply renders with the default pack.
+   */
+  overlayPack?: string;
 }
 
 export interface WorkflowExport {

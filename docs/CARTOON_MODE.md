@@ -47,7 +47,7 @@ describes subject/composition only:
   illustration framing; drop lens/photoreal wording.
 - `lib/scene-engine/sleep-scene-prompt.ts:23,72` — "photoreal image prompt" in the
   instructions + example schema.
-- `lib/scene-engine/no-gap-breakdown.ts:6,30,146,228` — "cinematic photoreal image
+- `lib/scene-engine/script-to-scenes.ts:6,30,146,228` — "cinematic photoreal image
   prompt" in comments + the user prompt at line 146.
 - `lib/types/index.ts:16` — `visual_prompt` doc comment ("Cinematic photoreal
   image prompt").

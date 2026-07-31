@@ -34,11 +34,13 @@ git add -A && git commit    # see "What changed" below for a message
 The app now lands on a job queue instead of the scene editor; jobs have their own
 URLs and honestly report whether a video is rendering or rendered. It builds and
 deploys via **Docker, not Nixpacks** (hard requirement — the user said so twice).
-A three-agent Python layer exists under `agents/`, is live-tested, and is **wired
-into nothing** — production still runs `lib/scene-engine/no-gap-breakdown.ts`.
-Overlay clips are now prefixed by pack (`fire-*`, `space-*`) and space footage is
-in the repo, but **Modal has not been redeployed**, so the renderer still has the
-old filenames baked into its image.
+The three-agent Python layer under `agents/` **is now the production scene
+path**; the old TypeScript prompts and coverage-repair code are deleted, no A/B
+was run, and refinement happens on the agents from here. Overlay clips are
+prefixed by pack (`fire-*`, `space-*`), space footage is in the repo, and
+`overlayPack` is threaded end to end — but **Modal has not been redeployed**, so
+the renderer still has the old filenames baked into its image. That is now a
+blocker, not a nicety: something finally sends `overlayPack`.
 
 ---
 
@@ -81,21 +83,27 @@ curl -s https://sleep-stories.up.railway.app/api/agents/health | python3 -m json
 
 ## What exists now
 
-### The agent layer (`agents/`) — built, live-tested, NOT WIRED
+### The scene path — wired in and running
 
 Contract copied from `../../../video-agents/military/agents/CLAUDE.md`: JSON on
-stdin, JSON on stdout, logs on stderr, exit nonzero on failure, no fallback.
-Read `agents/CLAUDE.md` before editing anything in there.
+stdin, JSON on stdout, logs on stderr, exit nonzero on failure. Read
+`agents/CLAUDE.md` before editing anything in there.
 
-| agent | job | state |
+| step | job | state |
 |---|---|---|
+| `cut-script.ts` | script → scene snippets. **No model.** `compromise` for sentence bounds, greedy ~20s grouping, every snippet a slice | 14 checks |
 | `script_context` | whole-script grounding **+ genre classification** | 15 checks, live 4/4 |
-| `scene_splitter` | chunk → byte-exact verbatim snippets | 15 checks, live byte-exact |
 | `scene_director` | snippets → `visual_context` + `negative_prompt` | 17 checks, both genres live |
 
 ```bash
-npm run check:agents    # 47 offline checks, no API key, no network
+npm run check:agents    # 32 offline checks, no API key, no network
+npm run check:cut       # 14, runs the TS directly via --experimental-strip-types
 ```
+
+**`scene_splitter` was deleted**, and the three versions it went through are
+worth knowing before anyone rebuilds one — see "Better than validating" in
+`agents/CLAUDE.md`. Short version: nothing downstream cares where a scene
+starts, only that the scenes tile the script.
 
 Also: `lib/agents/bridge.ts` (typed wrapper per agent),
 `app/api/agents/health/route.ts` (invokes every agent on an empty payload —
@@ -130,49 +138,47 @@ pointless. Do not reintroduce them.
 
 ## Next steps, in order
 
-### 1. Commit / branch (see the warning above)
+### 1. Redeploy Modal FIRST, then Railway
 
-### 2. Wire the agents in — the actual remaining work
+Order matters now. `overlayPack` is live in the app, so shipping the app against
+the current Modal image means `overlay_pool()` looks for `space-*.mp4` in an
+image that only has the pre-rename filenames, finds nothing, and falls back to a
+`fire-` prefix that also is not there.
 
-`lib/scene-engine/no-gap-breakdown.ts` still makes its own two
-`openai.chat.completions.create` calls. Replace them with `lib/agents/bridge.ts`
-calls, **one agent at a time**, in this order:
+```bash
+modal deploy render-modal/modal_app.py    # picks up public/overlays/* as renamed
+railway up --service sleep-stories
+```
 
-| # | step | gate before wiring |
-|---|---|---|
-| a | `scene_director` | **A/B vs current output on a real script** — generate images from both, compare. NOT YET RUN. |
-| b | `script_context` | already verified live 4/4 |
-| c | `scene_splitter` | **byte-for-byte diff of the reassembled script on a real 2h job.** Only verified on a 305-char chunk. |
+### 2. Run one real job and look at the images
 
-`scene_splitter` is last for a reason: audio alignment depends on snippets
-reconstructing the script exactly, so it is the one that can break existing
-videos.
+No A/B was run before deleting the TS path, so the first job is the test.
+Reassembly is no longer the thing to check — the snippets are slices and
+`cutScript` asserts the join, so drift cannot happen silently any more. What is
+untested on real content is **image quality from `scene_director`**, which is
+the one place output still comes from a model.
 
-**A/B corpus is already in hand** — the completed Somme job has 176 real scenes
-of current-path output and a 69,751-char reconstructable script:
+The completed Somme job (`868kj78jw`, 176 scenes, 69,751 chars) is the reference
+for what the old path produced:
 
 ```bash
 curl -s https://sleep-stories.up.railway.app/api/jobs/868kj78jw -o /tmp/somme.json
 python3 -c "
 import json; d=json.load(open('/tmp/somme.json'))
 sb=d['projectJson']['state']['storyboardScenes']
-print(len(sb),'scenes'); print(sb[0]['visual_prompt'][:200])
-print('script:', sum(len(s['script_snippet']) for s in sb),'chars')"
+print(len(sb),'scenes'); print(sb[0]['visual_prompt'][:200])"
 ```
 
-### 3. Thread the pack through
+Also grep the worker log for `SALVAGED` — that is the director having given up
+on a scene and reused a neighbour's imagery. Rare is fine; common means the
+prompt or the checks in `scene_director/checks.py` need attention.
 
-`overlay_pack` comes out of `script_context`; `overlayPack` is already plumbed
-through `lib/render/modal.ts` → `lib/remotion/start-render.ts`. Nothing sets it,
-so everything defaults to `fire`. The join is in `lib/jobs/worker.ts` where it
-calls `startRenderForScenes`.
+### 3. Watch cost and latency
 
-### 4. Redeploy Modal, then Railway
-
-```bash
-modal deploy render-modal/modal_app.py
-railway up --service sleep-stories
-```
+The old path made 1 + N LLM calls (one global pre-pass, one per chunk). The new
+one makes 1 + ceil(scenes/8) — `script_context` once, then the director in
+batches of 8. The cut costs nothing. Effort is `low` everywhere, but the
+director is still paid on every scene of every video.
 
 ---
 
@@ -188,11 +194,16 @@ railway up --service sleep-stories
   Somme job) because `worker.ts` stored `prompt_used` — the *final* prompt —
   back into `visual_prompt`, making it non-idempotent across retries. Fixed at
   source plus a `stripLeadingStyle()` repair for already-stored projects.
-- **The TS `closeCoverageGaps` had two bugs** the Python port fixed:
-  `indexOf` from position 0 (repeated narration resolved to the first
-  occurrence) and skipping whitespace-only gaps (fatal once byte-exact
-  reassembly is the contract). **The TS file still has both and is still in
-  production** — it is untouched.
+- **`closeCoverageGaps` and `healSnippet` are gone entirely**, along with the
+  agent that replaced them. Both existed to repair scene text after a model had
+  copied it out; `cut-script.ts` never lets a model near the text, so there is
+  nothing to repair. Their bugs (`indexOf` from position 0, so repeated
+  narration resolved to the first occurrence; whitespace-only gaps skipped) are
+  a good argument against ever reintroducing the shape.
+- **`compromise` is load-bearing.** A regex on `[.!?]\s` splits "Mr. Smith",
+  "Dr. Reed", "the U.S. Army" and "$4.50" mid-sentence. It is used for boundary
+  *offsets* only — its strings are normalized and must never become snippet
+  text. Covered by `npm run check:cut`.
 - **ClickUp list `901113872792` is named "Midnight Mysteries"**, not "Sleep
   Stories". `901113798933 "Space Cluster"` is *footage-collector's* WW2 board
   despite the name. There is no space list; genre rides the payload/inference.
@@ -221,8 +232,10 @@ railway up --service sleep-stories
    Adding it means restoring the tool loop deliberately deleted from
    `shared/llm.py`, plus a Serper key. Recommendation: build without, add a
    narrow verification pass only on named claims that measurably come back wrong.
-2. **The A/B in step 2a has not been run.** Two short smoke tests are not proof
-   the images come out no worse.
+2. **No A/B was run, by decision.** The old TS path is deleted rather than kept
+   alongside for comparison; refinement happens on the agents. The cost is that
+   the first real job is the test, and the failure that matters (snippet drift)
+   is silent — see step 2 above for the one command that catches it.
 3. **Two renders exist for the same Somme title** — `f2561e60723d` (07-29,
    624MB) and `8ef46d461488` (07-30, 634MB). Could be a legitimate re-run, could
    be the duplicate-render bug that is now fixed. Worth a look.
@@ -238,7 +251,8 @@ railway up --service sleep-stories
 ```bash
 npx tsc --noEmit                 # must be clean
 npm run build                    # must pass with .env.local moved aside
-npm run check:agents             # 47 offline checks
-cd agents && echo '{"script":""}' | python3 -m script_context   # empty-payload contract
+npm run check:agents             # 32 offline checks
+npm run check:cut                # 14, the deterministic scene cut
+cd agents && echo '{}' | python3 -m script_context   # empty-payload contract
 python3 -c "import ast;ast.parse(open('render-modal/modal_app.py').read())"
 ```

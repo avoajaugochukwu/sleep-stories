@@ -27,12 +27,12 @@ const TIMEOUT_CEILING_MS = 600_000; // a hang must still end; above this it is b
 
 /**
  * Two cost drivers, whichever the payload exposes: scene count (scene_director)
- * or text length (scene_splitter, script_context).
+ * or text length (script_context).
  */
 function timeoutFor(payload: unknown): number {
-  const p = payload as { scenes?: unknown; chunk_text?: string; script?: string };
+  const p = payload as { scenes?: unknown; script?: string };
   const scenes = Array.isArray(p?.scenes) ? p.scenes.length : 0;
-  const chars = (p?.chunk_text?.length ?? 0) + (p?.script?.length ?? 0);
+  const chars = p?.script?.length ?? 0;
   const need = scenes * TIMEOUT_PER_SCENE_MS + (chars / 1024) * TIMEOUT_PER_KB_MS;
   return Math.min(TIMEOUT_CEILING_MS, Math.max(TIMEOUT_FLOOR_MS, Math.round(need)));
 }
@@ -143,6 +143,8 @@ export interface ScriptContext {
   grounding: string;
   recurring_subjects: string[];
   genre: string;
+  /** Derived from genre in agents/shared/genres.py — the overlay filename prefix. */
+  overlay_pack: string;
 }
 
 export async function runScriptContext(
@@ -154,19 +156,6 @@ export async function runScriptContext(
     return `genre=${o.genre}, ${(o.summary as string).split(' ').length}w summary, ${subjects} recurring subjects`;
   });
   return out as unknown as ScriptContext;
-}
-
-export async function runSceneSplitter(
-  chunkText: string,
-  context: Partial<ScriptContext>,
-  targetSeconds?: number,
-): Promise<string[]> {
-  return runAgent<string[]>(
-    'scene_splitter',
-    { chunk_text: chunkText, context, target_seconds: targetSeconds },
-    'snippets',
-    (snippets) => `${snippets.length} scenes, ${chunkText.length} chars covered`,
-  );
 }
 
 export interface DirectedScene {

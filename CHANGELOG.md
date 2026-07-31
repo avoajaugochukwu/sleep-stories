@@ -5,6 +5,65 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
 
 ## 2026-07-31
 
+- **Splitting the script needs no model at all, so `scene_splitter` is deleted.**
+  It went through three designs in one day and the third was to delete it. The
+  original had the model copy each scene's text out verbatim, then heal the copy,
+  close coverage gaps, validate the reassembly and retry four times — six
+  mechanisms whose only job was undoing damage the model could do *because* it
+  had been handed the text. The second asked the model for cut markers only and
+  sliced the original string at them (copied from the military app's
+  `sliceBySnippets`), which made lossless coverage structural. The third
+  observed that **nothing downstream cares where a scene starts**, only that the
+  scenes tile the script: images are per-scene, so a cut landing mid-thought
+  costs nothing measurable. So the model call bought a marginally tidier cut for
+  a round trip per chunk plus a failure mode. Now `lib/scene-engine/cut-script.ts`
+  groups sentences to ~20s greedily, merges a short tail, and asserts
+  `snippets.join('') === script`. ~60 lines, no model, no subprocess, no retry,
+  cannot fail. `npm run check:cut` covers it (14 assertions, no framework —
+  `node --experimental-strip-types` runs the TypeScript directly).
+- **`lib/scene-engine/script-splitter.ts` is deleted**, folded into
+  `cut-script.ts`. `compromise` stays, and it earns its place: a regex on
+  `[.!?]\s` splits "Mr. Smith", "Dr. Reed", "the U.S. Army" and "$4.50"
+  mid-sentence, and a cut mid-sentence is a visible glitch. It is used for
+  boundary *positions* only — each sentence is located forward-only in the
+  original and only the offset is kept, because `compromise` normalizes
+  characters and its strings must never become the snippet text. A sentence it
+  mangles costs one candidate cut and nothing else. The deleted file also had a
+  quiet bug: it rebuilt each chunk as `sentences.join(' ')`, so chunk text was
+  never the original text and the old "byte-exact" contract was really against a
+  rejoined copy.
+- **`scene_director` takes every scene in ONE spawn and chunks internally**
+  (`CHUNK_SIZE = 8`, 8 in flight), instead of TS spawning it once per chunk.
+  Batch size decides what a single model call sees, so it changes output and
+  belongs beside the prompt — it was in `lib/`, two directories from the thing it
+  affected.
+- **`scene_director` fills an undirected scene from its nearest directed
+  neighbour instead of failing the video.** After the per-chunk bank-and-repair
+  loop it retries stragglers solo, then salvages whatever is still missing and
+  logs `SALVAGED`. Modal already does exactly this a layer down (a scene whose
+  image failed reuses the previous scene's image, so audio coverage is never
+  lost). It still throws if it resolved zero scenes — no neighbour to inherit
+  from.
+- **The Python agents are wired in; the old TypeScript scene path is deleted.**
+  `lib/scene-engine/no-gap-breakdown.ts` was renamed to `script-to-scenes.ts`
+  ("no-gap" described an invariant, not the job) and gutted: 282 lines down to
+  ~70, now a deterministic cut plus two bridge calls (`script_context`,
+  `scene_director`). **No A/B was run** — the decision was to wire in and refine
+  on the agents from here. Deleted with it: `lib/scene-engine/sleep-scene-prompt.ts`
+  (prompts live in `agents/*/prompt.py` now) and `lib/config/development.ts`
+  (zero importers).
+- **The LLM fallbacks are gone on purpose.** The old file caught a bad response
+  and collapsed the whole chunk into one scene with an empty/boilerplate image
+  prompt, so a failed call shipped a bad video instead of failing the job.
+  `script_context` now throws instead; the cut cannot fail and the director
+  salvages.
+- **`overlayPack` is threaded end to end.** `script_context` infers the genre and
+  derives the pack (`agents/shared/genres.py`), `breakdownScript` returns it,
+  and `worker.ts` passes it to `startRenderForScenes`. Persisted as an optional
+  `overlayPack` on `WorkflowState` so a resumed job does not silently fall back
+  to `fire`; it is not in the store's `partialize`, so a UI export just renders
+  with the default pack. **Modal must be redeployed before this ships** — its
+  image still has the pre-rename overlay filenames.
 - **Jobs now have their own URLs, and the queue says whether a video is
   rendering or rendered.** A job used to exist only as `/scenes?job=<taskId>` — a
   query param on the editor that dumped the prebaked project into the global
