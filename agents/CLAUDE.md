@@ -79,6 +79,13 @@ Two questions, in this order, before writing a validator:
   than content that has to survive a round trip? Then the check, the repair
   loop and the failure mode all disappear together.
 
+The overlay pack went the same way. The plan had an `atmosphere_director`
+picking clips from a tagged manifest; prefixing the clips by pack (`fire-*`,
+`space-*`) collapsed the whole problem into `OVERLAY_PACK[genre]`, a dict in
+`shared/genres.py`. The manifest JSON was already written and got deleted.
+**Check whether a decision can be made structural before making it
+probabilistic** — a naming convention did more than the agent would have.
+
 ## Bank the good
 
 Where checks can be keyed per item, resend **only** the items that failed. In
@@ -166,6 +173,21 @@ hands over the whole script or the whole scene list in one spawn. Chunk size
 decides what a single model call sees, which changes the output; parking it in
 `lib/` puts a prompt knob in a file with no prompt in it, two directories from
 the thing it affects.
+
+## Cost — image spend dominates, so do not optimise the model calls first
+
+A job is ~31 model calls against a few hundred image generations. Image spend
+wins by orders of magnitude, so shaving a director batch is not where the money
+is. Effort stays `low` because it is free to keep it there, not because it
+matters much.
+
+The one thing that would change this is the director going **per scene** instead
+of per batch — that multiplies calls by 8 and adds military's measured ~11.4k
+tokens of preamble to every one. Keep it batched.
+
+Do **not** port military's codex-subscription routing on reflex. It pays for
+itself there because its `identify` agent makes ~174 vision calls per job. There
+is no equivalent call volume here.
 
 ## Dependencies ship in the app container
 

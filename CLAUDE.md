@@ -22,11 +22,13 @@ account and must stay untouched. To redeploy the renderer, push the Modal app
 **Type-check after edits.** Run `npx tsc --noEmit` after editing any `.ts`/`.tsx`
 (the Next build also type-checks, but tsc is faster for a quick pass).
 
-**Update `CHANGELOG.md` — do not ask.** After any infra/config change (Lambda
-disk/memory, bucket, env vars, deploy scripts) or any non-obvious bug fix,
-prepend an entry to `CHANGELOG.md` under today's date (newest first): what
+**Update `docs/CHANGELOG.md` — do not ask.** After any infra/config change
+(bucket, env vars, Modal/Railway deploy, agent prompts or caps) or any
+non-obvious bug fix, prepend an entry under today's date (newest first): what
 changed, *why* (the symptom/error), and any name/env value that moved. This is
-how we avoid relearning the same failures.
+how we avoid relearning the same failures. Keep entries tight — one or two
+bullets. Old entries about deleted systems are marked `~~(dead code)~~` and kept
+only for the lesson they carry.
 
 ## AWS facts (don't relearn these)
 
@@ -57,10 +59,11 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   `{ ok, taskId, created, status, url }` where `url` = `/scenes?job=<taskId>`.
 - **Worker** (`lib/jobs/worker.ts`) — in-process drain loop, **requires the
   long-lived Railway server** (won't run on serverless). Does the whole pipeline
-  headless: `breakdownScript` → image pool (cap `MAX_GENERATED_IMAGES`, overflow
-  reuse) → audio duration (`music-metadata`, since the browser's `<audio>` trick
-  has no DOM here) → Modal render → stores the finished `WorkflowExport` as the
-  job's `project_json`. Flips ClickUp status (in-progress → done) and flags the
+  headless: `breakdownScript` → one image per scene (bounded concurrency, per-image
+  retry) → **gate**: any missing image parks the job as `needs_images` rather than
+  rendering a broken video → audio duration (`music-metadata`, since the browser's
+  `<audio>` trick has no DOM here) → Modal render → stores the finished
+  `WorkflowExport` as the job's `project_json`. Flips ClickUp status (in-progress → done) and flags the
   Baserow row `video_processed`. Cooperative cancel. All ClickUp/Baserow
   writebacks are best-effort (caught) — a missing status label or wrong row never
   blocks the render.
@@ -96,7 +99,8 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 
 - **`HANDOFF.md` — read this first in a new session.** Deployed-vs-local
   divergence, uncommitted work, ordered next steps, and the facts worth not
-  relearning. `session.md` is the running log; `PLAN-AGENTS.md` is the agent spec.
+  relearning. `session.md` is the running log; `docs/CHANGELOG.md` is the dated
+  history.
 - `agents/` — Python agent layer (`script_context`, `scene_director`) +
   `agents/CLAUDE.md` for its operating rules. **This is the production scene
   path**; `lib/scene-engine/script-to-scenes.ts` is the orchestrator that cuts

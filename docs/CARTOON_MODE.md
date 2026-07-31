@@ -35,27 +35,34 @@ to a **cel-shaded cartoon** look. Not applied — this is the checklist to apply
   photographed. + [the scene's visual_prompt]
   ```
 
-### 2. Remove "photoreal" from the prompt-generation layer
+### 2. Restyle the prompt-generation layer
 
-The LLM currently writes prompts *as photoreal film stills*. If we leave that in,
-each `visual_prompt` fights the cartoon prefix (period-accurate lighting/lens
-language pulls back toward photo). Strip the photoreal direction so the LLM
-describes subject/composition only:
+The prompt layer writes scenes as *photoreal film stills*. Left in, each
+`visual_prompt` fights the cartoon prefix — period-accurate lighting and lens
+language pulls back toward photo. Strip the photoreal direction so the model
+describes subject and composition only.
 
-- `lib/scene-engine/sleep-scene-prompt.ts:19` — persona says "a photorealistic
-  film still, fully directed (… lighting, colour, lens)". Rewrite to cartoon /
-  illustration framing; drop lens/photoreal wording.
-- `lib/scene-engine/sleep-scene-prompt.ts:23,72` — "photoreal image prompt" in the
-  instructions + example schema.
-- `lib/scene-engine/script-to-scenes.ts:6,30,146,228` — "cinematic photoreal image
-  prompt" in comments + the user prompt at line 146.
-- `lib/types/index.ts:16` — `visual_prompt` doc comment ("Cinematic photoreal
-  image prompt").
+All of it lives in the director agent now (this used to be spread across
+`sleep-scene-prompt.ts` and `no-gap-breakdown.ts`, both deleted):
+
+- `agents/scene_director/prompt.py` — the persona and the per-genre briefs.
+  Rewrite the framing to illustration; drop lens/photoreal wording.
+- `agents/scene_director/checks.py` — the denylist. It currently **bans**
+  "digital painting" and friends, because `STYLE_PREFIX` already prepends them
+  and a second style phrase in the prompt doubled up. Going cartoon means that
+  ban has to move to the new prefix's wording, not just be deleted.
+- `agents/scene_director/test_scene_director.py` — the denylist assertions pin
+  the current wording. Update in the same change (see `agents/CLAUDE.md`).
+- `lib/types/index.ts` — `visual_prompt` doc comment.
+
+Note `STYLE_PREFIX` in `lib/jobs/scene-image.ts:10` is prepended at generation
+time, and `stripLeadingStyle()` removes a leading copy first so retries stay
+idempotent. Both need to match whatever the new prefix is.
 
 ### 3. Housekeeping
 
-- `npx tsc --noEmit`.
-- Prepend a `CHANGELOG.md` entry (what changed + why).
+- `npx tsc --noEmit`, `npm run check:agents`.
+- Prepend a `docs/CHANGELOG.md` entry (what changed + why).
 
 ## Revert to photoreal
 
