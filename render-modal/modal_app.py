@@ -50,7 +50,25 @@ CROSSFADE_SEC = 1.2
 GRAIN = 9                          # ffmpeg temporal noise ~ GrainVignette's 6% overlay grain
 SCENE_CORES = 2
 ASSEMBLE_CORES = 4
-RATE_PER_CORE_HR = 0.10
+SCENE_MEM_MB = 4096
+ASSEMBLE_MEM_MB = 8192
+
+# Modal bills CPU and memory as SEPARATE line items, per second, on
+# max(request, actual) — https://modal.com/pricing. `cpu=` is physical cores
+# (1 core = 2 vCPU), which is what the per-core rate is quoted against. The
+# memory term is why a single $/core-hour constant cannot be right: it only
+# holds while every container keeps the same MB-per-core ratio.
+# The MEM_MB constants feed the @app.function decorators below, so the billed
+# request and the costed request cannot drift apart.
+CPU_USD_PER_CORE_SEC = 0.0000131
+MEM_USD_PER_GIB_SEC = 0.00000222
+
+
+def _container_usd(cores, mem_mb, sec):
+    """Marginal cost of one container. Undercounts: Modal bills container
+    uptime (cold start, image pull, up to 60s idle before scaledown) while
+    `sec` measures function-body time only."""
+    return sec * (cores * CPU_USD_PER_CORE_SEC + (mem_mb / 1024) * MEM_USD_PER_GIB_SEC)
 
 # Overlay scheduler (verbatim from build-input.ts scheduleOverlays).
 #
@@ -300,7 +318,7 @@ def _build_filter(job):
     return inputs, ";".join(p), base
 
 
-@app.function(secrets=[secret], cpu=SCENE_CORES, memory=4096, timeout=900,
+@app.function(secrets=[secret], cpu=SCENE_CORES, memory=SCENE_MEM_MB, timeout=900,
               retries=modal.Retries(max_retries=2))
 def render_one(job):
     os.makedirs(WORK, exist_ok=True)
@@ -328,7 +346,7 @@ def render_one(job):
     return {"idx": i, "key": key, "sec": round(time.time() - t0, 2)}
 
 
-@app.function(secrets=[secret], cpu=ASSEMBLE_CORES, memory=8192, timeout=1800)
+@app.function(secrets=[secret], cpu=ASSEMBLE_CORES, memory=ASSEMBLE_MEM_MB, timeout=1800)
 def assemble(render_id, clip_keys, bucket, tmp_prefix, audio_url, audio_dur, sound_effect, title):
     os.makedirs(WORK, exist_ok=True)
     t0 = time.time()
@@ -404,18 +422,21 @@ def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title, overlay
         })
 
     try:
-        keys, done_ct, core_sec = {}, 0, 0.0
+        keys, done_ct, core_sec, usd = {}, 0, 0.0, 0.0
         for r in render_one.map(jobs):
             keys[r["idx"]] = r["key"]
             core_sec += r["sec"] * SCENE_CORES
+            usd += _container_usd(SCENE_CORES, SCENE_MEM_MB, r["sec"])
             done_ct += 1
-            _set(render_id, progress=round(0.85 * done_ct / len(jobs), 3), scene_core_sec=round(core_sec, 1))
+            _set(render_id, progress=round(0.85 * done_ct / len(jobs), 3),
+                 scene_core_sec=round(core_sec, 1), cost=round(usd, 4))
         ordered = [keys[i] for i in range(len(jobs))]
         res = assemble.remote(render_id, ordered, bucket, tmp_prefix,
                               audio_url, audio_dur, sound_effect, title)
         core_sec += res["assemble_sec"] * ASSEMBLE_CORES
+        usd += _container_usd(ASSEMBLE_CORES, ASSEMBLE_MEM_MB, res["assemble_sec"])
         url = _public_url(bucket, res["key"])
-        cost = round(core_sec * RATE_PER_CORE_HR / 3600, 4)
+        cost = round(usd, 4)
         _set(render_id, done=True, progress=1.0, output=url, size_mb=res["size_mb"],
              wall_sec=round(time.time() - t0, 1), cost=cost, scene_core_sec=round(core_sec, 1))
         return url
@@ -425,9 +446,9 @@ def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title, overlay
 
 
 def _cost(p):
-    if p.get("cost") is not None:
-        return p["cost"]
-    return round(p.get("scene_core_sec", 0.0) * RATE_PER_CORE_HR / 3600, 4)
+    """Cost accrued so far — written on every scene completion, so an
+    in-flight render reports a running total rather than a re-derived guess."""
+    return p.get("cost", 0.0)
 
 
 @app.function(secrets=[secret])
