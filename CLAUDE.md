@@ -104,7 +104,7 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   denylists live in `agents/`, never in `lib/`. Each agent batches internally —
   TS hands over the whole script or the whole scene list in one spawn.
 - `lib/scene-engine/cut-script.ts` — the scene cut. **No model**: sentence
-  boundaries from `compromise`, a cut every `SENTENCES_PER_SCENE` (4, ~20-25s),
+  boundaries from `compromise`, a cut every `SENTENCES_PER_SCENE` (5, ~25-30s),
   and every snippet is a slice of the original so `snippets.join('') === script`.
 - Checks: `npm run check:agents` (32 offline, no key/network) and
   `npm run check:cut` (14).

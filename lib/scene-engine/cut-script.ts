@@ -7,17 +7,17 @@
 // nothing measurable. Asking a model for cut points bought a tidier cut for a
 // round trip per chunk and a failure mode.
 //
-// No word-count targeting either: sleep narration is even-paced, so 4 sentences
-// is 20-25s reliably enough. If scenes start coming out visibly long or short,
-// change SENTENCES_PER_SCENE — do not reintroduce a budget.
+// No word-count targeting either: sleep narration is even-paced, so a fixed
+// sentence count lands close enough. If scenes start coming out visibly long or
+// short, change SENTENCES_PER_SCENE — do not reintroduce a budget.
 // ============================================================================
 
 import nlp from 'compromise';
 
 export const WORDS_PER_SECOND = 2.5; // ~150 words per minute narration
 
-/** ~20-25s of narration at 150wpm. The one knob. */
-const SENTENCES_PER_SCENE = 4;
+/** ~25-30s of narration at 150wpm. The one knob. */
+const SENTENCES_PER_SCENE = 5;
 
 /**
  * Offsets in `script` where a sentence ends — the only places a scene may start.

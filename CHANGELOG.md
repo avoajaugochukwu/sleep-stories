@@ -17,10 +17,11 @@ non-obvious bug fixes worth not relearning. Newest first. Dates are YYYY-MM-DD.
   scenes tile the script: images are per-scene, so a cut landing mid-thought
   costs nothing measurable. So the model call bought a marginally tidier cut for
   a round trip per chunk plus a failure mode. Now `lib/scene-engine/cut-script.ts`
-  cuts after every 4th sentence — `SENTENCES_PER_SCENE`, the one knob — folds a
+  cuts after every 5th sentence — `SENTENCES_PER_SCENE`, the one knob — folds a
   one-sentence remainder back, and asserts `snippets.join('') === script`. No
-  word-budget targeting either: sleep narration is even-paced, so 4 sentences is
-  20-25s reliably enough, and a budget was arithmetic in place of a constant.
+  word-budget targeting either: sleep narration is even-paced, so a fixed
+  sentence count lands close enough, and a budget was arithmetic in place of a
+  constant.
   No model, no subprocess, no retry, cannot fail. `npm run check:cut` covers it
   (14 assertions, no framework — `node --experimental-strip-types` runs the
   TypeScript directly).
