@@ -1,0 +1,3 @@
+# Installs into the same image that serves the Next app. Keep it minimal —
+# heavy ML deps do not belong here.
+openai>=1.60.0

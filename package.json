@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:agents": "cd agents && for a in script_context scene_splitter scene_director; do python3 $a/test_$a.py || exit 1; done",
     "deploy:site": "node --env-file-if-exists=.env.local scripts/deploy-site.mjs"
   },
   "dependencies": {
