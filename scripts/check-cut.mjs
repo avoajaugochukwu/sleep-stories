@@ -8,8 +8,7 @@
 // self-corrects, so it is worth a check that runs in a second.
 
 import assert from 'node:assert/strict';
-import { cutScript } from '../lib/scene-engine/cut-script.ts';
-import { scaleScenesToAudio } from '../lib/scene-engine/cut-script.ts';
+import { cutScript, evenSceneDurations } from '../lib/scene-engine/cut-script.ts';
 
 const sentences = (n) =>
   Array.from({ length: n }, (_, i) => `Sentence number ${i} runs to its end.`).join(' ');
@@ -103,29 +102,33 @@ const checks = {
     assert.equal(scenes.length, 300);
   },
 
-  // scaleScenesToAudio — the clip clock must equal the narration clock, or the
+  // evenSceneDurations — the clip clock must equal the narration clock, or the
   // video ends early and the tail of the story is never seen. This shipped: a
-  // 4684s read rendered as a 3930s video before the rescale existed.
-  'scaled durations sum to the audio duration'() {
-    const scenes = [{ duration: 30 }, { duration: 45 }, { duration: 12 }];
-    const out = scaleScenesToAudio(scenes, 4684.824);
+  // 4684s read rendered as a 3930s video back when durations were word-counted.
+  'durations sum to the audio duration'() {
+    const out = evenSceneDurations([{ duration: 30 }, { duration: 45 }, { duration: 12 }], 4684.824);
     const sum = out.reduce((t, s) => t + s.duration, 0);
     assert.ok(Math.abs(sum - 4684.824) < 1e-6, `sum was ${sum}`);
   },
-  'scaling preserves relative scene length'() {
-    const out = scaleScenesToAudio([{ duration: 10 }, { duration: 20 }], 900);
-    assert.ok(Math.abs(out[1].duration / out[0].duration - 2) < 1e-9);
-    assert.deepEqual(out.map((s) => Math.round(s.duration)), [300, 600]);
+  'every scene gets an equal slice, whatever it came in as'() {
+    const out = evenSceneDurations([{ duration: 4 }, { duration: 174 }, { duration: 108 }], 900);
+    assert.deepEqual(out.map((s) => s.duration), [300, 300, 300]);
   },
-  'scaling keeps other scene fields'() {
-    const out = scaleScenesToAudio([{ duration: 10, image_url: 'a.png' }], 60);
+  'the real job: 91 scenes over 78 minutes'() {
+    const scenes = Array.from({ length: 91 }, () => ({ duration: 1 }));
+    const out = evenSceneDurations(scenes, 4684.824);
+    assert.ok(Math.abs(out[0].duration - 51.48) < 0.01, out[0].duration);
+    const sum = out.reduce((t, s) => t + s.duration, 0);
+    assert.ok(Math.abs(sum - 4684.824) < 1e-6, `sum was ${sum}`);
+  },
+  'other scene fields survive'() {
+    const out = evenSceneDurations([{ duration: 10, image_url: 'a.png' }], 60);
     assert.equal(out[0].image_url, 'a.png');
     assert.equal(out[0].duration, 60);
   },
   'degenerate inputs are returned untouched, never NaN'() {
-    assert.deepEqual(scaleScenesToAudio([], 100), []);
-    assert.deepEqual(scaleScenesToAudio([{ duration: 0 }], 100), [{ duration: 0 }]);
-    assert.deepEqual(scaleScenesToAudio([{ duration: 5 }], 0), [{ duration: 5 }]);
+    assert.deepEqual(evenSceneDurations([], 100), []);
+    assert.deepEqual(evenSceneDurations([{ duration: 5 }], 0), [{ duration: 5 }]);
   },
 };
 

@@ -1,7 +1,7 @@
 import type { StoryboardScene } from "@/lib/types";
 import { SOUND_EFFECTS, type SoundEffectKey } from "./sound-effects";
 import { deriveStoryTitle } from "@/lib/scene-engine/story-text";
-import { scaleScenesToAudio } from "@/lib/scene-engine/cut-script";
+import { evenSceneDurations } from "@/lib/scene-engine/cut-script";
 import { startModalRender } from "@/lib/render/modal";
 
 export interface StartRenderResult {
@@ -47,7 +47,7 @@ export async function startRenderForScenes(opts: {
       ? (soundEffect as SoundEffectKey | "none")
       : "fire";
 
-  const timedScenes = scaleScenesToAudio(scenes, audioDurationSec);
+  const timedScenes = evenSceneDurations(scenes, audioDurationSec);
 
   // Prefer a caller-supplied title (ClickUp task name); only ask the model otherwise.
   const title = opts.title?.trim() || (await deriveStoryTitle(scenes));
