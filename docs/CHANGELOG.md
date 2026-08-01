@@ -9,6 +9,39 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
 
 **Current architecture: `CLAUDE.md`.** Rules for the Python layer: `agents/CLAUDE.md`.
 
+## 2026-07-31 (later)
+
+- **Every scene after the first failed to render: `fps=` was dropped from the `[cur]` branch.**
+  `Parsed_xfade_9 ... First input link main timebase (1/24) do not match the corresponding second
+  input link xfade timebase (1/25)`. `-loop 1 -i img.png` is the **png_pipe** demuxer, which defaults
+  to **25 fps**, so `[cur]` carried timebase 1/25 while `[prev]` — and every other branch — was
+  forced to `fps=FPS` (24). `xfade` refuses the mismatch. Scene 0 has no `prev_url` and rendered
+  fine; scenes 1..n all died, and `render_one.map()` propagates, so the job failed. Fix is
+  `fps={FPS}` in the `[cur]` chain (`modal_app.py:273`), with a comment saying it is load-bearing.
+- **The regression was 29 days old and only reached prod today.** It came in with `1731692`
+  (07-02, "remove Ken Burns") — `zoompan` had been setting the frame rate, and deleting it deleted
+  the timebase too. `modal deploy` is manual and nobody ran it between 07-02 and 07-31, so prod kept
+  serving the pre-`1731692` app; the Somme renders on 07-29/07-30 succeeded on that stale copy.
+  Today's redeploy (for the cost fix) shipped a month of untested commits at once. **The hazard runs
+  both ways**: the earlier note warned that a clean-checkout redeploy would revert the deployed cost
+  constant, but the bigger risk was git being *ahead* of Modal with a broken commit. Deploy Modal
+  when you change it.
+- **A failed render was reused forever, so retry silently no-opped** (`worker.ts:245`). The reuse
+  branch was `if (priorRender?.renderId)` with no liveness check — and the checkpointed `status` is
+  written once at creation and never updated, since job state is derived on read. A retry therefore
+  re-adopted the dead render id and re-polled a corpse. Now polls Modal and only reuses when
+  `fatalErrorEncountered` is false; a poll that throws also starts fresh.
+- **`error=str(e)[:600]` truncated from the wrong end** (`modal_app.py:446`). `_sh` deliberately
+  keeps `stderr[-1800:]` because ffmpeg's real error is the *last* line — then `[:600]` threw exactly
+  that away and surfaced 600 chars of input banner. The whole diagnosis had to come from
+  `modal app logs`. Now `[-600:]`.
+- **`fc done` writeback works.** Job `868kk0481` came back `clickupStatus: "fc done"` — the status
+  the user added to Midnight Mysteries is being applied. The earlier entry's warning is resolved.
+- ⚠️ **`/api/jobs` shows "Rendering" for a render that has already failed.** The list route
+  deliberately does not poll Modal (one call per row per poll), so it reported `state: "rendering"`
+  while `/api/jobs/<id>`, which does poll, said `render_failed`. Unfixed — the queue page is the one
+  people look at.
+
 ## 2026-07-31
 
 - **The agent layer shipped and is live.** Merged to `main` (`ce9ff4a`), Railway built the Docker

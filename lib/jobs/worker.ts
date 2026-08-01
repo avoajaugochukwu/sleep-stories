@@ -11,6 +11,7 @@ import { breakdownScript } from "@/lib/scene-engine/script-to-scenes";
 import { generateSceneImage } from "./scene-image";
 import { getAudioDurationSec } from "./audio-duration";
 import { startRenderForScenes } from "@/lib/remotion/start-render";
+import { fetchModalRenderProgress } from "@/lib/render/modal";
 import { WORKFLOW_FILE_VERSION, type WorkflowExport } from "@/lib/utils/workflow-io";
 import type { Scene, StoryboardScene, RenderJob } from "@/lib/types";
 import { setClickupStatus } from "./clickup";
@@ -242,9 +243,25 @@ async function processJob(job: SleepJob): Promise<void> {
     //    renders/<renderId>/<slug>.mp4, and the dashboard resolves the download
     //    link from that id on read (see app/api/jobs). Keeps the worker free for
     //    the next job.
+    //    A failed render is NOT reusable — the checkpointed `status` is written
+    //    once at creation and never updated (state is derived on read), so ask
+    //    Modal. A poll that throws also means "start fresh": adopting a render
+    //    we can't see the state of is how a retry silently no-ops forever.
     const priorRender = job.projectJson?.state?.renders?.[0];
     let renderJob: RenderJob;
+    let reusable = false;
     if (priorRender?.renderId) {
+      try {
+        const p = await fetchModalRenderProgress(priorRender.renderId);
+        reusable = !p.fatalErrorEncountered;
+        if (!reusable) {
+          console.log(`[jobs ${taskId}] prior render ${priorRender.renderId} failed — re-rendering`);
+        }
+      } catch (e) {
+        console.warn(`[jobs ${taskId}] could not poll ${priorRender.renderId}, re-rendering:`, e);
+      }
+    }
+    if (priorRender?.renderId && reusable) {
       renderJob = priorRender;
       console.log(`[jobs ${taskId}] reusing render ${priorRender.renderId}`);
     } else {

@@ -270,8 +270,10 @@ def _build_filter(job):
         inputs += ["-loop", "1", "-t", str(cf + 0.1), "-i", prev]
 
     # ponytail: static frame, no Ken Burns — zoompan's per-frame x/y rounding caused visible shake
+    # fps= is load-bearing, not cosmetic: png_pipe defaults to 25fps, so without it [cur] keeps
+    # timebase 1/25 while every other branch is forced to 1/FPS, and xfade refuses the mismatch.
     p = [f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
-         f"setsar=1,format=gbrp[cur]"]
+         f"setsar=1,fps={FPS},format=gbrp[cur]"]
     base = "cur"
     if prev:
         p.append(f"[{i_prev}:v]scale={W}:{H},fps={FPS},format=gbrp,"
@@ -441,7 +443,9 @@ def driver(render_id, scenes, audio_url, audio_dur, sound_effect, title, overlay
              wall_sec=round(time.time() - t0, 1), cost=cost, scene_core_sec=round(core_sec, 1))
         return url
     except Exception as e:
-        _set(render_id, done=True, error=str(e)[:600], progress=1.0)
+        # tail, not head: _sh already keeps stderr[-1800:] because ffmpeg's real error is the last
+        # line — [:600] threw exactly that away and surfaced 600 chars of input banner instead.
+        _set(render_id, done=True, error=str(e)[-600:], progress=1.0)
         raise
 
 
