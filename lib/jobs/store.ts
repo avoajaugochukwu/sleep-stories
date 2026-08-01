@@ -202,7 +202,7 @@ export async function updateJob(
 export async function listVisibleJobs(): Promise<SleepJob[]> {
   await ensureTable();
   const res = await db.execute(
-    "SELECT * FROM sleep_jobs WHERE hidden = 0 ORDER BY updated_at DESC",
+    "SELECT * FROM sleep_jobs WHERE hidden = 0 ORDER BY created_at DESC",
   );
   return res.rows.map(rowToJob);
 }

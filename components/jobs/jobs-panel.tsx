@@ -29,7 +29,7 @@ interface JobSummary {
   url: string;
   /** The editor, for fixing images and re-rendering by hand. */
   projectUrl: string;
-  updatedAt: string;
+  createdAt: string;
 }
 
 /** "01 Aug 2026 04:13" in the viewer's timezone — absolute, so rows can be ordered by eye. */
@@ -79,7 +79,7 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
             <span className={`text-xs font-semibold uppercase tracking-wide ${badge.text}`}>
               {job.stateLabel}
             </span>
-            <span className="text-[11px] text-muted-foreground">{stamp(job.updatedAt)}</span>
+            <span className="text-[11px] text-muted-foreground">{stamp(job.createdAt)}</span>
           </div>
           <Link
             href={job.url}

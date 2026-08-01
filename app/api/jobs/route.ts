@@ -106,7 +106,9 @@ export async function GET() {
       /** The job's own page. `/scenes?job=` is still the EDIT path (below). */
       url: `/jobs/${j.taskId}`,
       projectUrl: `/scenes?job=${j.taskId}`,
-      updatedAt: j.updatedAt,
+      // createdAt, not updatedAt: every poll writes statusCheckedAt, which bumps
+      // updated_at, so the row's time would move on each refresh.
+      createdAt: j.createdAt,
     };
   });
 
