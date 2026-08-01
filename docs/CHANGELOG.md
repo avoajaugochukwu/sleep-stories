@@ -76,11 +76,12 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
   `lib/jobs/config.ts` had the wrong label on `901113872792`. Also recorded there:
   `901113798933 "Space Cluster"` is *footage-collector's* WW2 board despite the name, so **there is
   no space list** — a second genre rides the existing board via the ingest payload.
-- **`STATUS_DONE` has never applied on this board — documented, not changed.** Default is
-  `"fc done"`, but Midnight Mysteries only has `to do` / `in progress` / `complete` and no
-  `CLICKUP_STATUS_DONE` override exists. The writeback is best-effort and caught, so nothing errors;
-  a job whose render started simply stays "in progress" until a human sets it complete. Fix: set
-  `CLICKUP_STATUS_DONE` to a status that exists, or add `fc done` to the list.
+- **`STATUS_DONE` never applied on this board; `fc done` has since been added to it.** Default is
+  `"fc done"`, and Midnight Mysteries used to have only `to do` / `in progress` / `complete` with no
+  `CLICKUP_STATUS_DONE` override, so the writeback silently no-opped — it is best-effort and caught,
+  and a job whose render started just stayed "in progress" until a human set it complete. The status
+  now exists on the list, but **no job has exercised the writeback since**, and because the failure
+  is swallowed a casing/spacing mismatch would look identical to success. Verify on the next job.
 - **Modal render cost is now computed from Modal's real rates, CPU *and* memory.**
   `RATE_PER_CORE_HR = 0.10` was invented and ignored the memory line item, overstating every render
   by **~1.58×**. Modal bills the two separately, per second, on `max(request, actual)`:
@@ -92,7 +93,8 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
   knowing: the blended rate happens to be `$0.0631/core-hr` today only because both containers sit
   at 2 GiB per core, which is exactly why a single constant is the wrong shape; and the figure still
   **undercounts**, because Modal bills container uptime (cold start, image pull, ≤60s idle before
-  scaledown) while `sec` measures function-body time. ⚠️ **Needs `modal deploy` to take effect.**
+  scaledown) while `sec` measures function-body time. Deployed (`modal deploy`, all four functions,
+  same URL).
 - **Two renders for one Somme title were a double ingest, not a duplicate-render bug.** Jobs
   `868kj78jw` (07-30) and `868khnk1q` (07-29) hold byte-identical 12,597-word scripts. Ingest
   idempotency is keyed on `taskId`, so the same script arriving under two ClickUp tasks correctly
