@@ -32,16 +32,20 @@ interface JobSummary {
   updatedAt: string;
 }
 
-function relTime(iso: string): string {
+/** "01 Aug 2026 04:13" in the viewer's timezone — absolute, so rows can be ordered by eye. */
+function stamp(iso: string): string {
   const t = Date.parse(iso.replace(" ", "T") + "Z");
   if (Number.isNaN(t)) return "";
-  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  return new Date(t)
+    .toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace(",", "");
 }
 
 async function jobAction(taskId: string, action: "retry" | "cancel") {
@@ -75,7 +79,7 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
             <span className={`text-xs font-semibold uppercase tracking-wide ${badge.text}`}>
               {job.stateLabel}
             </span>
-            <span className="text-[11px] text-muted-foreground">{relTime(job.updatedAt)}</span>
+            <span className="text-[11px] text-muted-foreground">{stamp(job.updatedAt)}</span>
           </div>
           <Link
             href={job.url}
