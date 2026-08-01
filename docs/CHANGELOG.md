@@ -9,6 +9,14 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
 
 **Current architecture: `CLAUDE.md`.** Rules for the Python layer: `agents/CLAUDE.md`.
 
+**One file per month.** This file holds the current month; finished months move to
+`docs/changelog/YYYY-MM.md` and are linked below. Move a month down when it ends — do not let
+this file grow past a few hundred lines, or nobody reads the part that matters.
+
+## Archive
+
+- [2026-06](changelog/2026-06.md) — 8 dated entries
+
 ## 2026-07-31 (later)
 
 - **Scene timing now comes from Whisper word timestamps. Nothing estimates video
@@ -59,7 +67,9 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
   right while still assuming a uniform reading pace, so internal boundaries drifted
   up to ~100s on a real 91-scene job. Kept in history only for the measurement.
 
-- **Every video ever rendered was cut ~16% short — the clip clock never met the narration clock.**
+- ~~**Every video ever rendered was cut ~16% short — the clip clock never met the narration clock.**~~
+  **Superseded the same day by Whisper alignment above** — `scaleScenesToAudio` and
+  `WORDS_PER_SECOND` no longer exist. Kept for the measurement, which is the part worth having:
   Scene `duration` is `words / WORDS_PER_SECOND` (2.5), computed at *breakdown* time, before the
   audio exists. The TTS voice actually reads at **2.09 w/s**. Nothing reconciled the two, and the
   finished video is only as long as its clips, so the tail of the story was silently dropped: job
@@ -309,94 +319,3 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
   ~3.8× cheaper than medium; override `OPENAI_REASONING_EFFORT`), gpt-4o* → `temperature`. Also
   bumped the global-context pass `max_completion_tokens` 512 → 2000, because gpt-5 reasoning tokens
   count against that limit and were starving the summary to empty.
-
-## 2026-06-29
-
-- **Failed-image scenes are backfilled, not dropped.** Modal's `/render/start` used to filter out any
-  scene missing `image_url`, shortening the video below the narration so `-shortest` clipped the tail
-  of the audio; such a scene now reuses the previous scene's image.
-
-## 2026-06-27
-
-- **RENDER SWAP: Remotion-Lambda → Modal ffmpeg (~10× cheaper).** Lambda's 900s main-function timeout
-  made ~2h videos a coin-flip at ~$10/render. New renderer is `render-modal/modal_app.py` at
-  `https://avoajaugochukwu--sleep-render-web.modal.run` (~$1/render); same HTTP contract, so the swap
-  was transport-only: `lib/render/modal.ts`, base URL via `RENDER_API_BASE`.
-
-## 2026-06-26
-
-- **UI image gen got the same bounded-pool treatment** — 10 workers plus an `AbortController` Cancel
-  button, with the queue client-side so a refresh stops every not-yet-submitted scene.
-- ~~(dead code)~~ **A warm-palette mandate fights historically cool/drab colours.** A "rich warm
-  earth-toned palette" suffix force-warmed a WW2 Soviet greatcoat to RED; fixed with "keep colours
-  true to life, not artificially warmed" plus an explicit period-colour rule. Period and place
-  accuracy is why a global-context pre-pass exists at all — now `script_context`.
-
-## 2026-06-25
-
-- ~~(dead code)~~ **4K full-length was NOT viable on the Lambda topology — reverted to 1080p @
-  24fps.** 4K made every chunk hit the **900s HARD timeout** (frames ~4× slower; chunks capped by
-  Remotion's `MAX_FUNCTIONS_PER_RENDER = 200`, and 900s is the AWS max); 12fps cleared that but the
-  single-Lambda final concat then died with `No space left on device` (all 200 chunks plus the output
-  in 8 GB `/tmp`), and **the disk couldn't grow, because 10240 MB (the max) renames the function to
-  `…disk10240mb…` and collides with prod's name.** Surviving live value: image gen `scale: 1`.
-
-## 2026-06-24
-
-- **Worker image-gen timeouts (170/376 failed in one run).** It fired `Promise.all` over every scene,
-  so ~376 simultaneous requests backed up Modal's container queue and tail images blew the 5-min poll
-  deadline. Now a bounded pool of `IMAGE_GEN_CONCURRENCY` (default 10).
-- **Image generation moved to the self-hosted Modal image API**
-  (`avoajaugochukwu--open-source-image-gen-web.modal.run`), async submit→poll: `POST /generate`
-  (Bearer `IMAGE_API_TOKEN`) returns a `job_id`, then `GET /status/{job_id}` until `completed`. Why:
-  own the model + cost (scale-to-zero), no third-party per-call billing. New env `IMAGE_API_TOKEN`
-  (replaced `FAL_API_KEY`); cold starts ~40s. Model since changed to Krea-2. Cheap enough that the
-  100-image pool cap (`MAX_GENERATED_IMAGES` + overflow reuse) was removed.
-- **Ingest jobs failed with "Audio duration could not be determined".** Our TTS output (CBR MP3,
-  "MPEG 2 Layer 3" @ 64 kbps) carries **no Xing/Info duration header**, so `music-metadata`'s
-  `format.duration` came back `undefined` and the job failed *after* generating all images (wasted
-  spend). Fix: pass `{ duration: true }` to `parseWebStream` (forces a frame scan) in
-  `lib/jobs/audio-duration.ts`, plus a bitrate×size fallback.
-- **Added the Baserow/ClickUp ingest pipeline + `/jobs` dashboard**, mirroring footage-collector so
-  one n8n/Baserow automation fans out to both apps: `POST /api/jobs/ingest` (header
-  `x-ingest-secret`, body `{ taskId, listId?, script, audioUrl, name?, baserowRowId? }`, idempotent,
-  `audioUrl` required here — FC left it optional); in-process worker that **needs a long-lived
-  server**; ClickUp/Baserow writebacks all best-effort so a missing status label never blocks a
-  render. ~~(dead code)~~ the store was a Turso table `sleep_jobs` (now Supabase Postgres; FC uses
-  `footage_jobs`, no collision). New deps `pg`, `music-metadata`; new env `SUPABASE_DB_URL`,
-  `INGEST_SECRET`, `CLICKUP_API`, `BASE_ROW_URL`, `BASEROW_EMAIL`, `BASEROW_PASSWORD`,
-  `BASEROW_TABLE_ID`.
-
-## 2026-06-15
-
-- **"Start Over" didn't fully clear the session — old data came back.** The Zustand store persists to
-  IndexedDB (`idb-keyval`, key `sleep-stories-session`) but `reset()` only did
-  `set({ ...initialState })`, leaving the persisted entry intact, so the old session rehydrated on
-  next load. Fix: `reset()` also `idbDel`s the entry, and the key is a shared `STORAGE_KEY` constant
-  so the two can't drift.
-- ~~(dead code)~~ **Long scripts collapsed to one scene per chunk (exactly 29 scenes = 29 chunks).**
-  `DEFAULT_MODEL` was `claude-sonnet-4-20250514`, retired, so every per-chunk call got
-  `404 not_found_error` — and `generateForChunk`'s `catch` silently fell back to "whole chunk = one
-  scene". It looked like a chunking bug; it wasn't. **Lesson: a silent catch-fallback turns a dead
-  model into plausible-looking output** — why the LLM fallbacks were deleted 2026-07-31.
-- **Switched scene generation off Anthropic onto OpenAI** (`lib/ai/openai.ts`), using
-  `response_format: { type: 'json_object' }` — more reliable than fence-stripping. Needs
-  `OPENAI_API_KEY`; `lib/ai/anthropic.ts` has since been deleted.
-
-## 2026-06-04
-
-- **Ambience is a pick-one choice, not a toggle.** A `SOUND_EFFECTS` catalog keyed `fire` (vol 0.18)
-  / `meditation` (vol 0.10), each carrying its own volume so the fuller meditation pad never
-  overpowers narration. `soundEffect: "fire" | "meditation" | "none"` replaced the
-  `enableSoundEffect` bool; `/api/render/start` validates the key against the catalog.
-- **In-app mp3 narration upload via presigned PUT → S3.** `presignAudioUpload()` mints a 10-min
-  presigned PUT to `audio/<uuid>-<name>` in `REMOTION_RENDER_BUCKET` and the browser PUTs straight to
-  S3. **Why presigned:** dodges the request-size ceiling for long mp3s and keeps the file off
-  Railway. Objects are public-read; the `audio/` lifecycle expires them after 7 days.
-
-## 2026-06-01
-
-- **Audio URL load failed with a CORS error.** A public, reachable S3 URL showed "Could not load
-  audio from that URL": the `<audio>` element had `crossOrigin = "anonymous"`, forcing a CORS check
-  that buckets without an `Access-Control-Allow-Origin` header fail. Removed `crossOrigin` in
-  `components/workflow/audio-url-input.tsx` — we only read `duration`, which needs no CORS.

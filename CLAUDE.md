@@ -107,7 +107,9 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 
 ## Where to look
 
-- `docs/CHANGELOG.md` — dated history, newest first. The *why* behind most of
+- `docs/CHANGELOG.md` — dated history, newest first, **current month only**;
+  finished months live in `docs/changelog/YYYY-MM.md` and are linked from its
+  Archive section. The *why* behind most of
   the odd-looking decisions in here is in there.
 - `agents/` — Python agent layer (`script_context`, `scene_director`) +
   `agents/CLAUDE.md` for its operating rules. **This is the production scene
