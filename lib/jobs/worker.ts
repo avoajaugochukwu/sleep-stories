@@ -2,7 +2,7 @@
 //
 // Runs inside the long-lived Next server. Processes one job at a time, mirroring
 // what the browser UI does by hand: breakdown script -> generate one image per
-// scene -> read audio duration -> kick the Lambda render ->
+// scene -> read audio duration -> align to narration -> kick the Modal render ->
 // store the finished WorkflowExport. Flips ClickUp status as it goes and flags
 // the Baserow row when done. Survives restarts by re-queuing interrupted jobs on
 // first touch (ensureResumed) — there is no external queue.
@@ -10,7 +10,7 @@
 import { breakdownScript } from "@/lib/scene-engine/script-to-scenes";
 import { generateSceneImage } from "./scene-image";
 import { getAudioDurationSec } from "./audio-duration";
-import { startRenderForScenes } from "@/lib/remotion/start-render";
+import { startRenderForScenes } from "@/lib/render/start-render";
 import { fetchModalRenderProgress } from "@/lib/render/modal";
 import { WORKFLOW_FILE_VERSION, type WorkflowExport } from "@/lib/utils/workflow-io";
 import type { Scene, StoryboardScene, RenderJob } from "@/lib/types";
@@ -120,7 +120,7 @@ async function processJob(job: SleepJob): Promise<void> {
         script_snippet: s.script_snippet,
         visual_prompt: s.visual_prompt,
         negative_prompt: s.negative_prompt,
-        duration: s.duration,
+        // No duration here on purpose — Whisper sets it at render time.
       }));
       storyboard = scenes.map((s) => ({ ...s, generation_status: "pending" }));
       // Checkpoint the breakdown immediately: a restart before any image still

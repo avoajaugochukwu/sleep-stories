@@ -26,8 +26,8 @@ kills the build on a missing key. Verify: move `.env.local` aside,
 
 **Type-check after edits.** Run `npx tsc --noEmit` after editing any `.ts`/`.tsx`
 (the Next build also type-checks, but tsc is faster for a quick pass). For the
-scene path also run `npm run check:agents` (32 offline) and `npm run check:cut`
-(14).
+scene path also run `npm run check:agents` (32 offline), `npm run check:cut`
+(18) and `npm run check:align` (11). All three are offline — no key, no network.
 
 **Update `docs/CHANGELOG.md` — do not ask.** After any infra/config change
 (bucket, env vars, Modal/Railway deploy, agent prompts or caps) or any
@@ -115,11 +115,27 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   the script and calls them through `lib/agents/bridge.ts`. Prompts, caps and
   denylists live in `agents/`, never in `lib/`. Each agent batches internally —
   TS hands over the whole script or the whole scene list in one spawn.
-- `lib/scene-engine/cut-script.ts` — the scene cut. **No model**: sentence
-  boundaries from `compromise`, a cut every `SENTENCES_PER_SCENE` (5, ~25-30s),
-  and every snippet is a slice of the original so `snippets.join('') === script`.
-- Checks: `npm run check:agents` (32 offline, no key/network) and
-  `npm run check:cut` (14).
+- `lib/scene-engine/cut-script.ts` — the scene cut, and **only** the cut: it
+  decides where scenes start, never how long they last. **No model**: sentence
+  boundaries from `compromise`, then the first `OPENING_SCENES` (20) take
+  `OPENING_SENTENCES` (2) each and the rest take `SENTENCES_PER_SCENE` (5) — a
+  faster opening changes the image more often while a viewer is still deciding
+  to stay. Every snippet is a slice of the original so
+  `snippets.join('') === script`; that invariant is what Whisper alignment rides
+  on, so a non-verbatim snippet shifts every scene after it.
+- `lib/align/` — **scene timing, and the reason images sit on the right
+  sentences.** `index.ts` uploads the narration to the `whisper-transcribe` Modal
+  app (async `/v1/jobs` + poll, override with `WHISPER_TRANSCRIBE_URL`) and turns
+  word timestamps into per-scene durations; `dtw.ts` is ONE global DTW over the
+  whole script vs the whole transcript, sliced per scene; `normalize.ts` folds
+  spelled-out numbers to digits ("nineteen forty-five" → 1945) because Whisper
+  writes digits and the script spells them out. Ported from remotion-test-2.
+  **Never make the DTW per-scene/windowed** — that version drifted a cursor on
+  every weak match and cascaded into the rest of the video. **No fallback on
+  purpose**: unmatched scenes throw, because a guessed timing ships a video whose
+  images are on the wrong lines and nothing downstream can see that.
+- Checks: `npm run check:agents` (32), `npm run check:cut` (18),
+  `npm run check:align` (11). All offline, no key/network.
 - `lib/jobs/scene-image.ts` — image generation. `STYLE_PREFIX` is prepended at
   generation time, after `stripLeadingStyle()` strips a leading copy, so
   `visual_prompt` stays the raw prompt and retries are idempotent. Storing the
@@ -128,10 +144,11 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   video. Overlay clips are `<pack>-*.mp4` and their durations are **ffprobed at
   render time**, not hardcoded — the duration is a modulo for the source seek,
   and a stale constant makes the clip jump.
-- `lib/render/modal.ts` — HTTP client for the Modal renderer (start + poll).
-- `lib/remotion/` — `start-render.ts` (pick a title + kick Modal, shared by UI
-  route + worker) and `sound-effects.ts` (the ambient-bed labels). Dir keeps its
-  old name but no longer touches Remotion — Modal does all compositing.
+- `lib/render/` — `modal.ts` (HTTP client for the renderer: start + poll),
+  `start-render.ts` (align to the narration, pick a title, kick Modal — shared by
+  the UI route and the worker, so neither can render on a guess) and
+  `sound-effects.ts` (the ambient-bed labels). Was `lib/remotion/`; renamed
+  2026-07-31 because nothing in it had touched Remotion since Lambda was deleted.
 - `lib/jobs/` — ingest worker, Supabase store, ClickUp/Baserow clients, board config.
 - `app/api/render/*` — start a render + poll progress; `app/api/renders` lists the
   last 7 days from our bucket.

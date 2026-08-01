@@ -53,7 +53,7 @@ container (`render_one`, fanned out via `.map()`); `assemble` concats + muxes.
 → `{ done, overallProgress, outputFile, fatalErrorEncountered, errors, costsAccrued }`
 
 ## Point the app at it
-In `lib/remotion/start-render.ts` / `app/api/render/*`, swap the Lambda calls for `fetch`
+In `lib/render/start-render.ts` / `app/api/render/*`, swap the Lambda calls for `fetch`
 against `{webURL}/render/start` and `/render/{id}`. The request/response shapes already match
 render-panel.tsx, so the UI needs no change. (`costsAccrued` is a Modal-rate estimate; the
 real number is on the Modal dashboard.)

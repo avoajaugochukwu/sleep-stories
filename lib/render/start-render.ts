@@ -1,7 +1,7 @@
 import type { StoryboardScene } from "@/lib/types";
 import { SOUND_EFFECTS, type SoundEffectKey } from "./sound-effects";
 import { deriveStoryTitle } from "@/lib/scene-engine/story-text";
-import { evenSceneDurations } from "@/lib/scene-engine/cut-script";
+import { alignScenesToAudio } from "@/lib/align";
 import { startModalRender } from "@/lib/render/modal";
 
 export interface StartRenderResult {
@@ -47,7 +47,15 @@ export async function startRenderForScenes(opts: {
       ? (soundEffect as SoundEffectKey | "none")
       : "fire";
 
-  const timedScenes = evenSceneDurations(scenes, audioDurationSec);
+  // Whisper decides every scene's on-screen time. Both entry points (the UI
+  // route and the ingest worker) come through here, so neither can render on a
+  // guess. Throws if the narration cannot be matched to the script.
+  const durations = await alignScenesToAudio(
+    scenes.map((s) => s.script_snippet),
+    audioUrl,
+    audioDurationSec,
+  );
+  const timedScenes = scenes.map((s, i) => ({ ...s, duration: durations[i]! }));
 
   // Prefer a caller-supplied title (ClickUp task name); only ask the model otherwise.
   const title = opts.title?.trim() || (await deriveStoryTitle(scenes));

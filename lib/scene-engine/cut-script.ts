@@ -7,45 +7,24 @@
 // nothing measurable. Asking a model for cut points bought a tidier cut for a
 // round trip per chunk and a failure mode.
 //
-// No word-count targeting either: sleep narration is even-paced, so a fixed
-// sentence count lands close enough. If scenes start coming out visibly long or
-// short, change SENTENCES_PER_SCENE — do not reintroduce a budget.
+// No word-count targeting either, and no duration estimate at all: scene timing
+// comes from Whisper word timestamps at render time (`lib/align/`). This file
+// decides only WHERE the script is cut, never HOW LONG a scene is on screen.
+//
+// The snippets must rejoin the script exactly — `snippets.join('') === script`
+// is asserted below — because the alignment maps the concatenated script onto
+// the transcript and slices each scene out of that one path. A snippet that is
+// not a verbatim slice silently shifts every scene after it.
 // ============================================================================
 
 import nlp from 'compromise';
 
-// Only used to give a scene *some* duration at breakdown time, before audio
-// exists. It does not survive to the render — evenSceneDurations() overwrites
-// every value below. Do not tune it; it cannot affect the finished video.
-export const WORDS_PER_SECOND = 2.5; // ~150 words per minute narration
-
-/**
- * Give every scene the same slice of the narration: `audioDuration / sceneCount`.
- *
- * The audio is the only real clock. Nothing predicts or estimates video length —
- * the previous code timed each scene as `words / WORDS_PER_SECOND` (2.5) at
- * breakdown time, the voice actually reads at ~2.09, and since the video is only
- * as long as its clips a 78-minute read shipped as a 65-minute video.
- *
- * ponytail: an equal split, not a word-weighted one. It is exact on total length
- * by construction and has no constant to drift. It does assume an even reading
- * pace, so an image can sit up to ~100s from the line it illustrates (measured on
- * a real 91-scene job) — Whisper word timestamps are the fix for placement, and
- * this is deliberately the simple stand-in until then.
- *
- * Checked by `npm run check:cut`.
- */
-export function evenSceneDurations<T extends { duration?: number }>(
-  scenes: T[],
-  audioDurationSec: number,
-): T[] {
-  if (!scenes.length || !(audioDurationSec > 0)) return scenes;
-  const each = audioDurationSec / scenes.length;
-  return scenes.map((s) => ({ ...s, duration: each }));
-}
-
-/** ~25-30s of narration at 150wpm. The one knob. */
+/** Steady-state scene size, ~25-30s of narration. */
 const SENTENCES_PER_SCENE = 5;
+
+/** The opening runs faster: shorter scenes mean more image changes early. */
+const OPENING_SCENES = 20;
+const OPENING_SENTENCES = 2;
 
 /**
  * Offsets in `script` where a sentence ends — the only places a scene may start.
@@ -75,24 +54,44 @@ function sentenceEnds(script: string): number[] {
 }
 
 /**
- * Cut a script into scenes of `sentencesPerScene` sentences each. Concatenating
- * them in order reproduces the script exactly — asserted, not assumed, because
- * scene durations downstream are word counts and drift never self-corrects.
+ * Cut a script into scenes.
+ *
+ * The first `openingScenes` scenes take `openingSentences` sentences each, then
+ * every scene after takes `sentencesPerScene`. Short scenes up front change the
+ * image more often while a viewer is still deciding to stay; once they have
+ * settled the longer holds suit a sleep video. Pass `openingScenes = 0` for a
+ * uniform cut.
+ *
+ * Concatenating the snippets in order reproduces the script exactly — asserted,
+ * not assumed, because Whisper alignment maps the concatenated script onto the
+ * transcript, so a snippet that is not a verbatim slice shifts every scene after
+ * it and the drift never self-corrects.
  */
 export function cutScript(
   script: string,
-  sentencesPerScene: number = SENTENCES_PER_SCENE
+  sentencesPerScene: number = SENTENCES_PER_SCENE,
+  openingScenes: number = OPENING_SCENES,
+  openingSentences: number = OPENING_SENTENCES
 ): string[] {
   if (!script) return [];
   const ends = sentenceEnds(script);
   if (ends.length === 0) return [script];
 
-  // Cut after every Nth sentence, never after the last one — the final scene
-  // runs to the end of the script, trailing whitespace included.
-  const cuts = ends.filter((_, i) => (i + 1) % sentencesPerScene === 0 && i + 1 < ends.length);
+  // Walk the sentences, taking the opening size until the ramp is spent. Never
+  // cut after the last sentence — the final scene runs to the end of the
+  // script, trailing whitespace included.
+  const cuts: number[] = [];
+  let start = 0;
+  for (let scene = 0; ; scene++) {
+    const take = scene < openingScenes ? openingSentences : sentencesPerScene;
+    const next = start + take;
+    if (next >= ends.length) break;
+    cuts.push(ends[next - 1]!);
+    start = next;
+  }
 
   // A remainder of one sentence would be a two-second flash; fold it back.
-  if (ends.length % sentencesPerScene === 1) cuts.pop();
+  if (ends.length - start === 1) cuts.pop();
 
   const bounds = [0, ...cuts, script.length];
   const snippets = bounds.slice(0, -1).map((lo, i) => script.slice(lo, bounds[i + 1]));

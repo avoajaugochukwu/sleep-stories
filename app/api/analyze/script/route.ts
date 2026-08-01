@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
           scene_number: s.scene_number,
           script_snippet: s.script_snippet,
           visual_prompt: s.visual_prompt,
-          duration: s.duration,
           narration: '',
         }));
 

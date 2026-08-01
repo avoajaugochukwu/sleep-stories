@@ -9,6 +9,7 @@
     "lint": "eslint",
     "check:agents": "cd agents && for a in script_context scene_director; do python3 $a/test_$a.py || exit 1; done",
     "check:cut": "node --experimental-strip-types --no-warnings scripts/check-cut.mjs",
+    "check:align": "node --experimental-strip-types --no-warnings scripts/check-align.mjs",
     "deploy:site": "node --env-file-if-exists=.env.local scripts/deploy-site.mjs"
   },
   "dependencies": {

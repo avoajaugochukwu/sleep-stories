@@ -11,6 +11,54 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
 
 ## 2026-07-31 (later)
 
+- **Scene timing now comes from Whisper word timestamps. Nothing estimates video
+  length anymore.** `lib/align/` transcribes the narration on the existing
+  `whisper-transcribe` Modal app (stable-ts + faster-whisper `small`, T4,
+  `word_timestamps=True`, async `/v1/jobs` + poll because a 78-min file is ~3-5min
+  and the sync endpoint invites proxy timeouts), runs **one global DTW** over the
+  whole script vs the whole transcript, and slices each scene's span out of that
+  single path. A scene's duration is the gap between the moments its first and
+  next-first words are actually spoken. Called from `startRenderForScenes`, so the
+  UI route and the ingest worker both get it and neither can render on a guess.
+- **Global DTW, never per-scene.** remotion-test-2 learned this the hard way: its
+  windowed per-scene version advanced a cursor and, on a weak match, stepped it by
+  an *estimated* word count, so one bad patch of audio drifted every later window
+  and cascaded through the video. A global path has no cursor to drift. Cost table
+  ported unchanged (`MISMATCH 10 / DEL 5 / INS 5 / FILLER_INS 1`, free start+end).
+- **`normalize.ts` is load-bearing, not tidying.** Whisper writes "1945" and "18th";
+  a TTS script says "nineteen forty-five" and "eighteenth". Without the number-word
+  folding, every date and casualty figure is a mismatch — and these are history
+  scripts, so that is most of the alignment surface.
+- **No fallback, deliberately.** Unmatched scenes throw and the job produces no
+  video. Same call as deleting the `script_context` LLM fallbacks: a guessed timing
+  ships a video whose images sit on the wrong sentences, and nothing downstream can
+  see that. (remotion-test-2 *does* fall back to word-proportional timings here —
+  we deliberately did not copy that.)
+- **Transitions accounted for.** The renderer puts each crossfade *inside* the
+  opening `CROSSFADE_SEC` of a clip (`xfade ... offset=0`), so a clip starting
+  exactly on its first spoken word is still dissolving while that word plays. Every
+  boundary moves half a crossfade earlier, landing the dissolve's midpoint on the
+  sentence boundary. A uniform shift cancels in the differences, so only the ends
+  move: scene 0 loses 0.6s, the last scene gains it, total still equals the audio.
+  A scene that comes out shorter than the crossfade throws — ffmpeg's `xfade` needs
+  `duration` seconds of both inputs.
+- **The opening cuts faster: 20 scenes of 2 sentences, then 5.** More image changes
+  while a viewer is still deciding to stay; longer holds once they have settled.
+  `cutScript(script, sentencesPerScene, openingScenes, openingSentences)` —
+  pass `openingScenes = 0` for a uniform cut (the offline checks do).
+- **`WORDS_PER_SECOND` and every duration estimate are deleted.** `BreakdownScene`
+  no longer carries `duration` at all; there is no audio at breakdown time, so any
+  number there was a guess. Removed with it: `evenSceneDurations` (local only, never
+  pushed) and `scaleScenesToAudio` (was live — see below).
+- **`lib/remotion/` → `lib/render/`.** Nothing in it had touched Remotion since
+  Lambda was deleted on 07-01; it now sits beside `modal.ts`, which is what it
+  actually calls. `REMOTION_RENDER_BUCKET` keeps its name for now — renaming it
+  means a Railway variable change, so it is deliberately left alone.
+- ⚠️ **Two earlier fixes today are superseded.** `9bfaa17` (proportional rescale of
+  word-count durations) was live in prod and is now gone. It made the *total* length
+  right while still assuming a uniform reading pace, so internal boundaries drifted
+  up to ~100s on a real 91-scene job. Kept in history only for the measurement.
+
 - **Every video ever rendered was cut ~16% short — the clip clock never met the narration clock.**
   Scene `duration` is `words / WORDS_PER_SECOND` (2.5), computed at *breakdown* time, before the
   audio exists. The TTS voice actually reads at **2.09 w/s**. Nothing reconciled the two, and the

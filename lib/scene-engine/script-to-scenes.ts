@@ -4,31 +4,26 @@
 // script once for context and genre, then have the director write imagery for
 // every scene. Two agent calls and some arithmetic.
 //
-// The snippets are slices of the script, so they concatenate back into it and
-// the scene durations below track the narration clock. See `agents/CLAUDE.md`.
+// The snippets are verbatim slices of the script, which is what lets Whisper
+// alignment place each scene on the narration at render time. See
+// `agents/CLAUDE.md` and `lib/align/`. Nothing here assigns a duration — there
+// is no audio yet at breakdown time, so any number would be a guess.
 // ============================================================================
 
-import { cutScript, WORDS_PER_SECOND } from './cut-script';
+import { cutScript } from './cut-script';
 import { runScriptContext, runSceneDirector } from '@/lib/agents/bridge';
-
-const MIN_SCENE_DURATION = 5;
 
 export interface BreakdownScene {
   scene_number: number;
   script_snippet: string;
   visual_prompt: string; // cinematic image prompt
   negative_prompt?: string; // period-inaccurate things to exclude
-  duration: number; // seconds, derived from word count
 }
 
 export interface BreakdownResult {
   scenes: BreakdownScene[];
   genre: string;
   overlayPack: string;
-}
-
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 /**
@@ -63,10 +58,6 @@ export async function breakdownScript(script: string): Promise<BreakdownResult> 
         script_snippet: snippet,
         visual_prompt: d.visual_context,
         negative_prompt: d.negative_prompt?.trim() || undefined,
-        duration: Math.max(
-          MIN_SCENE_DURATION,
-          Math.round(countWords(snippet) / WORDS_PER_SECOND)
-        ),
       };
     }),
     genre: context.genre,

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { StoryboardScene } from "@/lib/types";
-import { startRenderForScenes } from "@/lib/remotion/start-render";
+import { startRenderForScenes } from "@/lib/render/start-render";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 900; // Whisper transcription of a 78min narration is ~3-5min
 
 type Body = {
   scenes?: StoryboardScene[];

@@ -6,7 +6,7 @@ import { useSessionStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { SOUND_EFFECTS, type SoundEffectKey } from "@/lib/remotion/sound-effects";
+import { SOUND_EFFECTS, type SoundEffectKey } from "@/lib/render/sound-effects";
 import { NavigationButtons } from "@/components/common/navigation-buttons";
 import { SessionTools } from "@/components/workflow/session-tools";
 import { RenderHistory, fmtWhen } from "@/components/renders/render-history";
