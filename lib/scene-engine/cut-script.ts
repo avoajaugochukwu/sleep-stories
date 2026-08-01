@@ -14,7 +14,34 @@
 
 import nlp from 'compromise';
 
+// A guess, and only ever a guess — it is applied at breakdown time, before any
+// audio exists. Do not tune it to fix a length mismatch; scaleScenesToAudio below
+// is what reconciles the two clocks once the real narration can be measured.
 export const WORDS_PER_SECOND = 2.5; // ~150 words per minute narration
+
+/**
+ * Stretch the word-count duration split onto the measured narration clock.
+ *
+ * Scene durations start as `words / WORDS_PER_SECOND`, but the TTS voice does not
+ * read at 2.5 w/s — measured 2.09 — and the finished video is only as long as its
+ * clips, so the tail of the narration was silently cut off: a 78-minute read
+ * shipped as a 65-minute video. Word counts stay the source of *relative* scene
+ * length; the audio duration becomes the absolute total. Self-correcting if the
+ * voice ever changes, which retuning the constant would not be.
+ *
+ * Checked by `npm run check:cut`.
+ */
+export function scaleScenesToAudio<T extends { duration?: number }>(
+  scenes: T[],
+  audioDurationSec: number,
+): T[] {
+  const total = scenes.reduce((t, s) => t + (s.duration || 0), 0);
+  if (total <= 0 || !(audioDurationSec > 0)) return scenes;
+  return scenes.map((s) => ({
+    ...s,
+    duration: ((s.duration || 0) / total) * audioDurationSec,
+  }));
+}
 
 /** ~25-30s of narration at 150wpm. The one knob. */
 const SENTENCES_PER_SCENE = 5;

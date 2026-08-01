@@ -9,6 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { cutScript } from '../lib/scene-engine/cut-script.ts';
+import { scaleScenesToAudio } from '../lib/scene-engine/cut-script.ts';
 
 const sentences = (n) =>
   Array.from({ length: n }, (_, i) => `Sentence number ${i} runs to its end.`).join(' ');
@@ -101,6 +102,31 @@ const checks = {
     assert.equal(scenes.join(''), s);
     assert.equal(scenes.length, 300);
   },
+
+  // scaleScenesToAudio — the clip clock must equal the narration clock, or the
+  // video ends early and the tail of the story is never seen. This shipped: a
+  // 4684s read rendered as a 3930s video before the rescale existed.
+  'scaled durations sum to the audio duration'() {
+    const scenes = [{ duration: 30 }, { duration: 45 }, { duration: 12 }];
+    const out = scaleScenesToAudio(scenes, 4684.824);
+    const sum = out.reduce((t, s) => t + s.duration, 0);
+    assert.ok(Math.abs(sum - 4684.824) < 1e-6, `sum was ${sum}`);
+  },
+  'scaling preserves relative scene length'() {
+    const out = scaleScenesToAudio([{ duration: 10 }, { duration: 20 }], 900);
+    assert.ok(Math.abs(out[1].duration / out[0].duration - 2) < 1e-9);
+    assert.deepEqual(out.map((s) => Math.round(s.duration)), [300, 600]);
+  },
+  'scaling keeps other scene fields'() {
+    const out = scaleScenesToAudio([{ duration: 10, image_url: 'a.png' }], 60);
+    assert.equal(out[0].image_url, 'a.png');
+    assert.equal(out[0].duration, 60);
+  },
+  'degenerate inputs are returned untouched, never NaN'() {
+    assert.deepEqual(scaleScenesToAudio([], 100), []);
+    assert.deepEqual(scaleScenesToAudio([{ duration: 0 }], 100), [{ duration: 0 }]);
+    assert.deepEqual(scaleScenesToAudio([{ duration: 5 }], 0), [{ duration: 5 }]);
+  },
 };
 
 let failed = 0;
@@ -113,4 +139,4 @@ for (const [name, check] of Object.entries(checks)) {
   }
 }
 if (failed) process.exit(1);
-console.log(`cutScript: ${Object.keys(checks).length} checks passed`);
+console.log(`cutScript + scene timing: ${Object.keys(checks).length} checks passed`);

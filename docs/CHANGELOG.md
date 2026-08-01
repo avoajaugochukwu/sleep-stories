@@ -11,6 +11,19 @@ carries: Remotion + AWS Lambda (deleted 2026-07-01), Turso (now Supabase Postgre
 
 ## 2026-07-31 (later)
 
+- **Every video ever rendered was cut ~16% short — the clip clock never met the narration clock.**
+  Scene `duration` is `words / WORDS_PER_SECOND` (2.5), computed at *breakdown* time, before the
+  audio exists. The TTS voice actually reads at **2.09 w/s**. Nothing reconciled the two, and the
+  finished video is only as long as its clips, so the tail of the story was silently dropped: job
+  `868kk0481` measured 9808 words / 4684.8s audio, `sum(duration)` 3930s, output **3930.03s** — a
+  78-minute read shipped as a 65-minute video, losing the last **12.6 minutes**. Both Somme renders
+  have it too. `assemble` passes `-t audio_dur`, which is why this was invisible: ffmpeg simply runs
+  out of video and stops, no error. Fixed with `scaleScenesToAudio()` in `cut-script.ts`, called from
+  `startRenderForScenes` so the UI and worker paths both get it — word counts stay the source of
+  *relative* scene length, measured audio becomes the absolute total. **Do not "fix" this by retuning
+  `WORDS_PER_SECOND`**; a rescale is self-correcting when the voice changes, a constant is not.
+  Four assertions in `npm run check:cut` (now 18).
+
 - **Every scene after the first failed to render: `fps=` was dropped from the `[cur]` branch.**
   `Parsed_xfade_9 ... First input link main timebase (1/24) do not match the corresponding second
   input link xfade timebase (1/25)`. `-loop 1 -i img.png` is the **png_pipe** demuxer, which defaults
