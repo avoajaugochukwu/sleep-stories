@@ -125,6 +125,29 @@ def overlay_pool(pack):
 # Title (TitleCard.tsx) + captions (story-text.ts) timing.
 TITLE_FADE_IN, TITLE_HOLD, TITLE_FADE_OUT = 2.0, 4.5, 2.5
 TITLE_TOTAL = TITLE_FADE_IN + TITLE_HOLD + TITLE_FADE_OUT
+TITLE_FS = 96                      # title font size
+TITLE_LH = 112                     # line advance when a long title wraps
+TITLE_WRAP = 34                    # target chars/line before wrapping
+
+
+def _wrap_title(text: str, max_chars: int = TITLE_WRAP) -> list[str]:
+    """Wrap a long title into balanced lines so none overflows the frame.
+    Debian's ffmpeg lacks drawtext text_align, so we draw one centered line
+    each — this decides where they break."""
+    words = text.split()
+    if len(text) <= max_chars or not words:
+        return [text]
+    n = (len(text) + max_chars - 1) // max_chars  # lines needed
+    target = len(text) / n                        # even split, not greedy-to-max
+    lines, cur = [], ""
+    for w in words:
+        if cur and len(cur) + 1 + len(w) > target and len(lines) < n - 1:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = f"{cur} {w}".strip()
+    lines.append(cur)
+    return lines
 CAP_MIN_GAP, CAP_MAX_GAP = 180.0, 300.0
 CAP_LEAD, CAP_FADE, CAP_HOLD = 1.5, 1.6, 4.5
 CAP_TOTAL = CAP_FADE + CAP_HOLD + CAP_FADE
@@ -308,15 +331,23 @@ def _build_filter(job):
                  f"fontcolor=0xEEF0FF@0.92:fontsize=46:x=w*0.07:y=h*0.87-text_h:"
                  f"shadowcolor=black@0.8:shadowx=0:shadowy=2:alpha='{a}'[cap]")
         base = "cap"
-    if job.get("title"):
+    if job.get("title_lines"):
         g = job["gstart_sec"]
         a = (f"if(lt({g}+t,{TITLE_FADE_IN}),({g}+t)/{TITLE_FADE_IN},"
              f"if(lt({g}+t,{TITLE_FADE_IN + TITLE_HOLD}),1,"
              f"if(lt({g}+t,{TITLE_TOTAL}),1-(({g}+t)-{TITLE_FADE_IN + TITLE_HOLD})/{TITLE_FADE_OUT},0)))")
-        p.append(f"[{base}]drawtext=fontfile={FONT}:textfile={job['title_file']}:"
-                 f"fontcolor=white@0.96:fontsize=96:x=(w-text_w)/2:y=(h-text_h)/2:"
-                 f"shadowcolor=black@0.7:shadowx=0:shadowy=2:alpha='{a}'[ti]")
-        base = "ti"
+        lines = job["title_lines"]
+        n = len(lines)
+        for k, lf in enumerate(lines):
+            # Stack as a vertically centered block; each line centered on its own
+            # width. Offset from frame center by whole line-heights.
+            dy = (k - (n - 1) / 2) * TITLE_LH
+            y = f"(h-text_h)/2+({dy})"
+            nxt = f"ti{k}"
+            p.append(f"[{base}]drawtext=fontfile={FONT}:textfile={lf}:"
+                     f"fontcolor=white@0.96:fontsize={TITLE_FS}:x=(w-text_w)/2:y={y}:"
+                     f"shadowcolor=black@0.7:shadowx=0:shadowy=2:alpha='{a}'[{nxt}]")
+            base = nxt
     return inputs, ";".join(p), base
 
 
@@ -335,8 +366,11 @@ def render_one(job):
         job["cap_file"] = f"{WORK}/cap{i}.txt"
         open(job["cap_file"], "w").write(job["caption"])
     if job.get("title"):
-        job["title_file"] = f"{WORK}/title{i}.txt"
-        open(job["title_file"], "w").write(job["title"])
+        job["title_lines"] = []
+        for k, ln in enumerate(_wrap_title(job["title"])):
+            fp = f"{WORK}/title{i}_{k}.txt"
+            open(fp, "w").write(ln)
+            job["title_lines"].append(fp)
 
     inputs, fc, out_label = _build_filter(job)
     out = f"{WORK}/clip{i:04d}.mp4"

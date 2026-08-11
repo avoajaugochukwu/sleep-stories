@@ -1,16 +1,33 @@
 import { NextResponse } from "next/server";
 import { deleteRenderObject, listRecentRenders } from "@/lib/aws/s3";
 import { getUploadedMap, setUploaded } from "@/lib/jobs/render-meta";
+import { listVisibleJobs } from "@/lib/jobs/store";
+import { clickupTaskUrl } from "@/lib/jobs/clickup";
 
 export const runtime = "nodejs";
 
 // List finished renders from the last 7 days, each carrying its persistent
-// "uploaded" flag from render_meta.
+// "uploaded" flag and — when the render came from a job we still have — the
+// ClickUp task link, so you can jump to the job from the render row.
 export async function GET() {
   try {
-    const [renders, uploaded] = await Promise.all([listRecentRenders(), getUploadedMap()]);
+    const [renders, uploaded, jobs] = await Promise.all([
+      listRecentRenders(),
+      getUploadedMap(),
+      listVisibleJobs().catch(() => []),
+    ]);
+    // renderId -> ClickUp URL, via the render id stored in each job's export.
+    const clickupByRender = new Map<string, string>();
+    for (const j of jobs) {
+      const rid = j.projectJson?.state?.renders?.[0]?.renderId;
+      if (rid) clickupByRender.set(rid, clickupTaskUrl(j.taskId));
+    }
     return NextResponse.json({
-      renders: renders.map((r) => ({ ...r, uploaded: uploaded[r.renderId] ?? false })),
+      renders: renders.map((r) => ({
+        ...r,
+        uploaded: uploaded[r.renderId] ?? false,
+        clickupUrl: clickupByRender.get(r.renderId) ?? null,
+      })),
     });
   } catch (e) {
     return NextResponse.json(

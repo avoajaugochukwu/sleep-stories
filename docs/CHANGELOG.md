@@ -19,13 +19,19 @@ this file grow past a few hundred lines, or nobody reads the part that matters.
 
 ## 2026-08-11
 
-- **/renders: persistent "Uploaded" checkbox + real download.** Per-render flag
-  keyed by S3 `renderId` in a new `render_meta` table (`lib/jobs/render-meta.ts`);
-  `GET /api/renders` merges it in, `POST /api/renders {renderId,uploaded}` toggles
-  it. Download now fetches the blob and saves it (the `download` attr is ignored
-  cross-origin on S3 URLs); the old anchor became a "View" (open in new tab)
-  button. `render_meta` shares the same 7-day horizon as the renders/jobs it
-  describes, so stale flags are moot.
+- **/renders row: Uploaded checkbox, real download, View + ClickUp links.**
+  Persistent "uploaded" flag keyed by S3 `renderId` in a new `render_meta` table
+  (`lib/jobs/render-meta.ts`); `GET /api/renders` merges it in, `POST /api/renders
+  {renderId,uploaded}` toggles it. **Download** is now a presigned GET with
+  `Content-Disposition: attachment` (`RenderListing.downloadUrl`) — a plain
+  anchor downloads it; the blob-fetch approach silently failed on cross-origin
+  CORS. "View" opens the MP4 in a new tab. **ClickUp** link per row when the
+  render maps to a still-visible job (via `projectJson.state.renders[0].renderId`
+  → task). Button hover changed from `bg-accent` (yellow) to `bg-secondary/50`.
+- **Video title wraps to centered lines.** Long titles overflowed at fontsize 96.
+  `render-modal/modal_app.py` now `_wrap_title()`s into balanced lines and draws
+  each as its own centered `drawtext` (Debian ffmpeg 5.1 has no `text_align`).
+  **Needs a Modal redeploy** (`render-modal/`) to take effect.
 
 ## 2026-07-31 (later)
 

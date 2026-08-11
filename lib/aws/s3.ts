@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
@@ -39,6 +40,8 @@ export interface RenderListing {
   renderId: string;
   name: string;
   url: string;
+  /** Presigned GET that forces a download (Content-Disposition: attachment). */
+  downloadUrl: string;
   key: string;
   sizeMB: number;
   createdAt: string; // ISO
@@ -75,11 +78,21 @@ export async function listRecentRenders(): Promise<RenderListing[]> {
       const m = obj.Key.match(RENDER_KEY_RE);
       if (!m) continue;
       if (obj.LastModified.getTime() < cutoff) continue;
+      const name = friendlyName(m[2]!, m[1]!);
       out.push({
         renderId: m[1]!,
-        name: friendlyName(m[2]!, m[1]!),
+        name,
         key: obj.Key,
         url: `https://${bucket}.s3.${awsRegion}.amazonaws.com/${obj.Key}`,
+        downloadUrl: await getSignedUrl(
+          s3(),
+          new GetObjectCommand({
+            Bucket: bucket,
+            Key: obj.Key,
+            ResponseContentDisposition: `attachment; filename="${name.replace(/[^\w.-]+/g, "-")}.mp4"`,
+          }),
+          { expiresIn: 3600 },
+        ),
         sizeMB: Math.round(((obj.Size ?? 0) / 1024 / 1024) * 100) / 100,
         createdAt: obj.LastModified.toISOString(),
       });

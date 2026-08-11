@@ -13,9 +13,11 @@ interface HistoryItem {
   name: string;
   url: string;
   key: string;
+  downloadUrl: string;
   sizeMB: number;
   createdAt: string;
   uploaded: boolean;
+  clickupUrl: string | null;
 }
 
 // Absolute date+time plus a relative hint, so "when was this made" is obvious at
@@ -85,24 +87,6 @@ export function RenderHistory({ refreshKey = 0 }: { refreshKey?: number }) {
     }
   };
 
-  // Force a real download instead of navigating to the S3 URL: the `download`
-  // attribute is ignored cross-origin, so fetch the blob and save it. Bucket
-  // CORS already allows GET.
-  const download = async (item: HistoryItem) => {
-    try {
-      const res = await fetch(item.url);
-      const blob = await res.blob();
-      const href = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = `${item.name}.mp4`;
-      a.click();
-      URL.revokeObjectURL(href);
-    } catch {
-      window.open(item.url, "_blank"); // ponytail: fall back to a plain open
-    }
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -144,17 +128,27 @@ export function RenderHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-accent"
+                  className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-secondary/50"
                 >
                   <ExternalLink className="mr-1 h-3.5 w-3.5" /> View
                 </a>
-                <button
-                  type="button"
-                  onClick={() => void download(item)}
-                  className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-accent"
+                <a
+                  href={item.downloadUrl}
+                  download={`${item.name}.mp4`}
+                  className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-secondary/50"
                 >
                   <Download className="mr-1 h-3.5 w-3.5" /> MP4
-                </button>
+                </a>
+                {item.clickupUrl && (
+                  <a
+                    href={item.clickupUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-secondary/50"
+                  >
+                    ClickUp ↗
+                  </a>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
