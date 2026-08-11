@@ -114,7 +114,7 @@ export function RenderHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                   {fmtWhen(item.createdAt)} · {item.sizeMB} MB
                 </p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 <label className="mr-1 flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
@@ -144,7 +144,7 @@ export function RenderHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                     href={item.clickupUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-secondary/50"
+                    className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md px-3 text-xs font-medium text-primary hover:bg-secondary/50"
                   >
                     ClickUp ↗
                   </a>
