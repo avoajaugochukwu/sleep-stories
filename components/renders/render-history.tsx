@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, History, RefreshCw, Trash2 } from "lucide-react";
+import { Download, ExternalLink, History, RefreshCw, Trash2 } from "lucide-react";
 
 // The 7-day S3 render list. Deliberately knows nothing about the session store:
 // a finished MP4 outlives the project that made it, and most of them come from
@@ -15,6 +15,7 @@ interface HistoryItem {
   key: string;
   sizeMB: number;
   createdAt: string;
+  uploaded: boolean;
 }
 
 // Absolute date+time plus a relative hint, so "when was this made" is obvious at
@@ -70,6 +71,38 @@ export function RenderHistory({ refreshKey = 0 }: { refreshKey?: number }) {
     }
   };
 
+  const toggleUploaded = async (item: HistoryItem) => {
+    const next = !item.uploaded;
+    setHistory((h) => h.map((x) => (x.renderId === item.renderId ? { ...x, uploaded: next } : x)));
+    try {
+      await fetch("/api/renders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ renderId: item.renderId, uploaded: next }),
+      });
+    } catch {
+      void load();
+    }
+  };
+
+  // Force a real download instead of navigating to the S3 URL: the `download`
+  // attribute is ignored cross-origin, so fetch the blob and save it. Bucket
+  // CORS already allows GET.
+  const download = async (item: HistoryItem) => {
+    try {
+      const res = await fetch(item.url);
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `${item.name}.mp4`;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch {
+      window.open(item.url, "_blank"); // ponytail: fall back to a plain open
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -98,14 +131,30 @@ export function RenderHistory({ refreshKey = 0 }: { refreshKey?: number }) {
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                <label className="mr-1 flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={item.uploaded}
+                    onChange={() => void toggleUploaded(item)}
+                    className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                  />
+                  Uploaded
+                </label>
                 <a
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-accent"
                 >
-                  <Download className="mr-1 h-3.5 w-3.5" /> MP4
+                  <ExternalLink className="mr-1 h-3.5 w-3.5" /> View
                 </a>
+                <button
+                  type="button"
+                  onClick={() => void download(item)}
+                  className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary hover:bg-accent"
+                >
+                  <Download className="mr-1 h-3.5 w-3.5" /> MP4
+                </button>
                 <Button
                   variant="ghost"
                   size="sm"

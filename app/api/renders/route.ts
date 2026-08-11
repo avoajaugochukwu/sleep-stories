@@ -1,13 +1,34 @@
 import { NextResponse } from "next/server";
 import { deleteRenderObject, listRecentRenders } from "@/lib/aws/s3";
+import { getUploadedMap, setUploaded } from "@/lib/jobs/render-meta";
 
 export const runtime = "nodejs";
 
-// List finished renders from the last 7 days.
+// List finished renders from the last 7 days, each carrying its persistent
+// "uploaded" flag from render_meta.
 export async function GET() {
   try {
-    const renders = await listRecentRenders();
-    return NextResponse.json({ renders });
+    const [renders, uploaded] = await Promise.all([listRecentRenders(), getUploadedMap()]);
+    return NextResponse.json({
+      renders: renders.map((r) => ({ ...r, uploaded: uploaded[r.renderId] ?? false })),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : String(e) },
+      { status: 500 },
+    );
+  }
+}
+
+// Toggle a render's "uploaded" flag. Body: { renderId, uploaded }.
+export async function POST(req: Request) {
+  try {
+    const { renderId, uploaded } = await req.json();
+    if (!renderId) {
+      return NextResponse.json({ error: "renderId required" }, { status: 400 });
+    }
+    await setUploaded(String(renderId), Boolean(uploaded));
+    return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
