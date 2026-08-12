@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { STATE_ORDER, STATE_STYLE, type RenderState } from "./state-style";
 
+/** Collapsed channel sections persist across reloads, keyed by channel label. */
+const COLLAPSE_KEY = "jobs-collapsed-channels";
+
 type JobStatus = "queued" | "running" | "ready" | "failed" | "cancelled" | "needs_images";
 
 interface JobSummary {
@@ -189,6 +192,31 @@ export function JobsPanel() {
     return () => clearInterval(t);
   }, [load]);
 
+  // Collapsed channel sections, restored from localStorage so they stay closed
+  // across reloads. Keyed by channel label (mirrors the military /tasks queue).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSE_KEY);
+      if (raw) setCollapsed(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+  const toggleChannel = useCallback((channel: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(channel)) next.delete(channel);
+      else next.add(channel);
+      try {
+        localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   // Chip labels come from the jobs themselves, not a local map — the server owns
   // what a state is called (lib/jobs/render-state.ts) and this keeps one copy.
   const counts = STATE_ORDER.map((s) => {
@@ -253,17 +281,26 @@ export function JobsPanel() {
         </p>
       ) : (
         <div className="space-y-6">
-          {groups.map((group) => (
-            <section key={group.channel} className="space-y-3">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                {group.channel}
-                <span className="text-xs font-normal text-muted-foreground">{group.jobs.length}</span>
-              </h2>
-              {group.jobs.map((job) => (
-                <Row key={job.taskId} job={job} refresh={load} />
-              ))}
-            </section>
-          ))}
+          {groups.map((group) => {
+            const isCollapsed = collapsed.has(group.channel);
+            return (
+              <section key={group.channel} className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => toggleChannel(group.channel)}
+                  className="flex w-full items-center gap-2 text-left text-sm font-semibold text-foreground"
+                >
+                  <span className="w-3 shrink-0 text-xs text-muted-foreground">{isCollapsed ? "▸" : "▾"}</span>
+                  {group.channel}
+                  <span className="text-xs font-normal text-muted-foreground">{group.jobs.length}</span>
+                </button>
+                {!isCollapsed &&
+                  group.jobs.map((job) => (
+                    <Row key={job.taskId} job={job} refresh={load} />
+                  ))}
+              </section>
+            );
+          })}
         </div>
       )}
     </div>

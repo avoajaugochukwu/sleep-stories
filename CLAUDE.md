@@ -83,10 +83,13 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 - **Hydration:** opening `/scenes?job=<taskId>` runs `JobHydrator`, which polls
   the job and loads the prebaked `WorkflowExport` through the existing
   import path — so images + audio persist for re-render and thumbnail picking.
-- **Boards:** `lib/jobs/config.ts` maps ClickUp list `901113872792`, which
-  ClickUp names **"Midnight Mysteries"**, not "Sleep Stories". The
+- **Boards:** `lib/jobs/config.ts` maps two ClickUp lists: `901113872792`
+  (ClickUp name **"Sleep Retreat Channel"** — renamed 2026-08-12 from "Midnight
+  Mysteries", earlier "Sleep Stories") and `901114309009` (**"Space Sleep
+  Journey"**, added 2026-08-12). Labels are display-only; routing is by listId, so
+  a ClickUp rename never breaks ingest — only the label follows. The
   plausible-looking `901113798933 "Space Cluster"` is *footage-collector's* WW2
-  board despite the name — there is no space list, genre rides inference.
+  board despite the name — genre rides inference, not the board.
   Status labels default to `in progress`/`fc done`/`complete`,
   overridable via `CLICKUP_STATUS_IN_PROGRESS|DONE|COMPLETE` env.
 - **Env (all on Railway + `.env.local`):** `INGEST_SECRET`, `SUPABASE_DB_URL`,

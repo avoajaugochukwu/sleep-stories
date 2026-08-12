@@ -17,6 +17,23 @@ this file grow past a few hundred lines, or nobody reads the part that matters.
 
 - [2026-06](changelog/2026-06.md) — 8 dated entries
 
+## 2026-08-12
+
+- **Renamed board label "Midnight Mysteries" → "Sleep Retreat Channel"** in
+  `lib/jobs/config.ts` (+ `CLAUDE.md`) to match the ClickUp list rename. List id
+  `901113872792` is unchanged, so ingest/worker/Baserow were never affected —
+  the label is display-only grouping. Lesson: a ClickUp rename only touches this
+  one label, never routing.
+- **Second sleep channel: "Space Sleep Journey".** Created the ClickUp list
+  (id `901114309009`) in the same `Projects` folder as Midnight Mysteries, and
+  mapped it in `lib/jobs/config.ts` `BOARDS` so ingested jobs on that list group
+  under its own header on `/jobs`. Point the new board's ClickUp/Baserow
+  automation at list `901114309009`.
+- **Collapsible channel sections on `/jobs`, persisted.** `components/jobs/jobs-panel.tsx`
+  now toggles each channel section open/closed on its header; state is a `Set` of
+  collapsed channel labels saved to `localStorage` key `jobs-collapsed-channels`,
+  so it survives reloads. Mirrors the military `/tasks` queue pattern.
+
 ## 2026-08-11
 
 - **/renders row: Uploaded checkbox, real download, View + ClickUp links.**

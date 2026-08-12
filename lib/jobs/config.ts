@@ -17,15 +17,22 @@ export interface BoardConfig {
 }
 
 export const BOARDS: Record<string, BoardConfig> = {
-  // The sleep-stories board. ClickUp calls this list **Midnight Mysteries** —
-  // the label here used to read "Sleep Stories", which cost a search to
-  // reconcile. There is no separate space/cosmos list: the only other candidate,
-  // "Space Cluster" (901113798933), is footage-collector's WW2 board despite the
-  // name. A second genre rides on this same list via the ingest payload.
+  // The sleep-stories board. ClickUp calls this list **Sleep Retreat Channel**
+  // (renamed 2026-08-12 from "Midnight Mysteries"; earlier "Sleep Stories"). This
+  // label is display-only for dashboard grouping — routing keys off listId, so a
+  // ClickUp rename never breaks ingest; only this label has to follow. There is no
+  // separate space/cosmos list: the only other candidate, "Space Cluster"
+  // (901113798933), is footage-collector's WW2 board despite the name.
   // https://app.clickup.com/9011731879/v/l/li/901113872792
   "901113872792": {
     listId: "901113872792",
-    label: "Midnight Mysteries",
+    label: "Sleep Retreat Channel",
+  },
+  // Second sleep channel, created 2026-08-12 in the same "Projects" folder.
+  // https://app.clickup.com/9011731879/v/l/li/901114309009
+  "901114309009": {
+    listId: "901114309009",
+    label: "Space Sleep Journey",
   },
 };
 
