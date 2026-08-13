@@ -10,7 +10,10 @@ const COLLAPSE_KEY = "jobs-collapsed-channels";
 type JobStatus = "queued" | "running" | "ready" | "failed" | "cancelled" | "needs_images";
 
 interface JobSummary {
-  taskId: string;
+  /** Null for a finished render whose job row is gone (headless leftover). */
+  taskId: string | null;
+  /** The S3 render id, when a video exists. Keys the "uploaded" flag. */
+  renderId: string | null;
   channel: string | null;
   name: string;
   status: JobStatus;
@@ -26,12 +29,18 @@ interface JobSummary {
   completed: number;
   failed: number;
   error: string | null;
+  /** Public S3 URL — opens the video in the browser ("Watch"). */
   videoUrl: string | null;
-  clickupUrl: string;
-  /** The job's own page. */
-  url: string;
-  /** The editor, for fixing images and re-rendering by hand. */
-  projectUrl: string;
+  /** Presigned attachment URL — forces a download ("MP4"). */
+  downloadUrl: string | null;
+  /** S3 object key, for deleting the render. */
+  renderKey: string | null;
+  uploaded: boolean;
+  clickupUrl: string | null;
+  /** The job's own page. Null for a headless-render leftover. */
+  url: string | null;
+  /** The editor, for viewing the project or fixing images by hand. */
+  projectUrl: string | null;
   createdAt: string;
 }
 
@@ -59,13 +68,29 @@ async function jobAction(taskId: string, action: "retry" | "cancel") {
   });
 }
 
-function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
+function Row({
+  job,
+  refresh,
+  onToggleUploaded,
+  onDeleteRender,
+}: {
+  job: JobSummary;
+  refresh: () => void;
+  onToggleUploaded: (job: JobSummary, next: boolean) => void;
+  onDeleteRender: (job: JobSummary) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const badge = STATE_STYLE[job.state];
   const active = job.state === "queued" || job.state === "generating";
   const pct = job.total > 0 ? Math.round(((job.completed + job.failed) / job.total) * 100) : 0;
+  // Viewing the project is safe once the job is settled; while it's still
+  // generating/queued/rendering the editor's Render button could buy a second
+  // copy, so we keep the link out until then (CHANGELOG 2026-07-30).
+  const canOpenProject =
+    !!job.projectUrl && !active && job.state !== "rendering";
 
   const act = (action: "retry" | "cancel", confirmMsg?: string) => async () => {
+    if (!job.taskId) return;
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     setBusy(true);
     await jobAction(job.taskId, action);
@@ -84,12 +109,18 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
             </span>
             <span className="text-[11px] text-muted-foreground">{stamp(job.createdAt)}</span>
           </div>
-          <Link
-            href={job.url}
-            className="mt-1 block break-words text-sm font-medium text-foreground hover:underline"
-          >
-            {job.name || job.taskId}
-          </Link>
+          {job.url ? (
+            <Link
+              href={job.url}
+              className="mt-1 block break-words text-sm font-medium text-foreground hover:underline"
+            >
+              {job.name || job.taskId}
+            </Link>
+          ) : (
+            <p className="mt-1 block break-words text-sm font-medium text-foreground">
+              {job.name || job.renderId}
+            </p>
+          )}
           <p className="mt-0.5 text-xs text-muted-foreground">{job.stateDetail}</p>
 
           {(active || job.total > 0) && (
@@ -106,23 +137,16 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Link
-              href={job.url}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
-            >
-              Open job →
-            </Link>
-            {/* The editor is where the Render button lives, so it stays a
-                secondary action and is only offered when a human genuinely has
-                something to fix. Never for a job that is already rendering. */}
-            {(job.state === "needs_images" || job.state === "needs_render") && (
+            {job.url && (
               <Link
-                href={job.projectUrl}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary/50"
+                href={job.url}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
               >
-                Open project to fix →
+                Open job →
               </Link>
             )}
+            {/* Watch (browser) and MP4 (download) are split — you almost always
+                want to eyeball the take before saving it. */}
             {job.videoUrl && (
               <a
                 href={job.videoUrl}
@@ -130,8 +154,27 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
                 rel="noopener noreferrer"
                 className="rounded-lg border border-success/50 px-3 py-1.5 text-xs font-semibold text-success hover:bg-success/10"
               >
-                Download video ↓
+                Watch ▷
               </a>
+            )}
+            {job.downloadUrl && (
+              <a
+                href={job.downloadUrl}
+                download={`${job.name || "render"}.mp4`}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary/50"
+              >
+                MP4 ↓
+              </a>
+            )}
+            {canOpenProject && (
+              <Link
+                href={job.projectUrl!}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary/50"
+              >
+                {job.state === "needs_images" || job.state === "needs_render"
+                  ? "Open project to fix →"
+                  : "Open project →"}
+              </Link>
             )}
             {active && (
               <button
@@ -154,14 +197,38 @@ function Row({ job, refresh }: { job: JobSummary; refresh: () => void }) {
                 {busy ? "…" : "Retry"}
               </button>
             )}
-            <a
-              href={job.clickupUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-            >
-              ClickUp ↗
-            </a>
+            {job.renderKey && (
+              <button
+                onClick={() => onDeleteRender(job)}
+                className="rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+              >
+                Delete
+              </button>
+            )}
+
+            <div className="ml-auto flex items-center gap-3">
+              {job.renderId && job.videoUrl && (
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={job.uploaded}
+                    onChange={() => onToggleUploaded(job, !job.uploaded)}
+                    className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                  />
+                  Uploaded
+                </label>
+              )}
+              {job.clickupUrl && (
+                <a
+                  href={job.clickupUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  ClickUp ↗
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -190,6 +257,29 @@ export function JobsPanel() {
     load();
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
+  }, [load]);
+
+  // Optimistic render-meta edits (uploaded flag + delete). Keyed by renderId /
+  // renderKey — these live in S3 + render_meta, not the sleep_jobs row.
+  const toggleUploaded = useCallback((job: JobSummary, next: boolean) => {
+    if (!job.renderId) return;
+    setJobs((js) =>
+      js.map((j) => (j.renderId === job.renderId ? { ...j, uploaded: next } : j)),
+    );
+    fetch("/api/renders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ renderId: job.renderId, uploaded: next }),
+    }).catch(() => load());
+  }, [load]);
+
+  const removeRender = useCallback((job: JobSummary) => {
+    if (!job.renderKey) return;
+    if (!window.confirm("Delete this render? The MP4 is removed from S3 for good.")) return;
+    setJobs((js) => js.filter((j) => j.renderKey !== job.renderKey));
+    fetch(`/api/renders?key=${encodeURIComponent(job.renderKey)}`, {
+      method: "DELETE",
+    }).catch(() => load());
   }, [load]);
 
   // Collapsed channel sections, restored from localStorage so they stay closed
@@ -276,8 +366,9 @@ export function JobsPanel() {
         </p>
       ) : jobs.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border/70 p-10 text-center text-sm text-muted-foreground">
-          No active jobs. They appear automatically when Baserow sends one, and
-          disappear once marked complete (or deleted) in ClickUp.
+          Nothing here yet. Jobs appear automatically when Baserow sends one, and
+          their finished videos stay for 7 days — grouped by channel — so you can
+          watch, download, or reopen the project.
         </p>
       ) : (
         <div className="space-y-6">
@@ -296,7 +387,13 @@ export function JobsPanel() {
                 </button>
                 {!isCollapsed &&
                   group.jobs.map((job) => (
-                    <Row key={job.taskId} job={job} refresh={load} />
+                    <Row
+                      key={job.taskId ?? job.renderId}
+                      job={job}
+                      refresh={load}
+                      onToggleUploaded={toggleUploaded}
+                      onDeleteRender={removeRender}
+                    />
                   ))}
               </section>
             );

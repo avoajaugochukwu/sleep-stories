@@ -17,6 +17,21 @@ this file grow past a few hundred lines, or nobody reads the part that matters.
 
 - [2026-06](changelog/2026-06.md) — 8 dated entries
 
+## 2026-08-13
+
+- **Merged `/renders` into `/jobs` — one channel-grouped screen.** The two
+  screens did almost the same thing, and a render's ClickUp/project links died
+  the moment ClickUp marked the job complete (the job was hidden, so the
+  render-side lookup against *visible* jobs found nothing). Now `GET /api/jobs`
+  returns one list: live job rows **plus** every finished render. A render whose
+  job was hidden is re-attached via `listAllJobs()` (new, hidden rows included)
+  keyed on `renders[0].renderId`, so ClickUp + "Open project" survive for the
+  render's whole 7-day life. Headless leftovers with no job show under
+  "Unassigned". `/renders` now `redirect()`s to `/jobs`; header "Renders" link
+  removed. Row gained Watch (browser) / MP4 (download) split, Uploaded checkbox,
+  and Delete — all on any row that has a render. `/jobs` widened to `max-w-4xl`.
+  `RenderHistory` component kept — the `/render` editor step still embeds it.
+
 ## 2026-08-12
 
 - **Renamed board label "Midnight Mysteries" → "Sleep Retreat Channel"** in

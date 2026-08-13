@@ -207,6 +207,15 @@ export async function listVisibleJobs(): Promise<SleepJob[]> {
   return res.rows.map(rowToJob);
 }
 
+/** Every job row, hidden ones included — used only to re-attach a finished
+ *  render to its (now hidden) job so the merged queue can still link back to
+ *  ClickUp and the project. Never render these directly. */
+export async function listAllJobs(): Promise<SleepJob[]> {
+  await ensureTable();
+  const res = await db.execute("SELECT * FROM sleep_jobs ORDER BY created_at DESC");
+  return res.rows.map(rowToJob);
+}
+
 /** Claim the oldest queued job, flipping it to running. */
 export async function claimNextQueuedJob(): Promise<SleepJob | null> {
   await ensureTable();

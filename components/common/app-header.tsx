@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Moon, ListChecks, ArrowLeft, Film } from 'lucide-react';
+import { Moon, ListChecks, ArrowLeft } from 'lucide-react';
 import { ReadyTasksBadge } from '@/components/jobs/ready-tasks-badge';
 
 // No "01"/"02" any more. The numbering sold a linear wizard, and almost no video
@@ -24,7 +24,6 @@ export function AppHeader() {
   // session strip on /scenes, next to the work they affect.
   const isEditor = pathname === '/scenes' || pathname === '/render';
   const isQueue = pathname === '/jobs' || pathname.startsWith('/jobs/');
-  const isRenders = pathname === '/renders';
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
@@ -57,21 +56,6 @@ export function AppHeader() {
             )}
             <span className="hidden sm:inline">Jobs</span>
             <ReadyTasksBadge />
-          </Link>
-
-          {/* Finished videos are not part of a project — a headless job renders
-              one without a session ever existing — so this is a peer of Jobs,
-              not a step inside the editor. */}
-          <Link
-            href="/renders"
-            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${
-              isRenders
-                ? 'border-border bg-primary/15 text-foreground'
-                : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
-            }`}
-          >
-            <Film className="h-4 w-4" />
-            <span className="hidden sm:inline">Renders</span>
           </Link>
 
           {isEditor && (
