@@ -29,13 +29,15 @@ kills the build on a missing key. Verify: move `.env.local` aside,
 scene path also run `npm run check:agents` (32 offline), `npm run check:cut`
 (18) and `npm run check:align` (11). All three are offline — no key, no network.
 
-**Update `docs/CHANGELOG.md` — do not ask.** After any infra/config change
-(bucket, env vars, Modal/Railway deploy, agent prompts or caps) or any
-non-obvious bug fix, prepend an entry under today's date (newest first): what
-changed, *why* (the symptom/error), and any name/env value that moved. This is
-how we avoid relearning the same failures. Keep entries tight — one or two
-bullets. Old entries about deleted systems are marked `~~(dead code)~~` and kept
-only for the lesson they carry.
+**Update the changelog — do not ask.** After any infra/config change (bucket,
+env vars, Modal/Railway deploy, agent prompts or caps) or any non-obvious bug
+fix, prepend an entry under today's date (newest first) in the **current
+month's file** `docs/changelog/YYYY-MM.md` (create it if the month is new, then
+add it to the `docs/CHANGELOG.md` index) — what changed, *why* (the
+symptom/error), and any name/env value that moved. This is how we avoid
+relearning the same failures. Keep entries tight — one or two bullets. Old
+entries about deleted systems are marked `~~(dead code)~~` and kept only for the
+lesson they carry.
 
 ## AWS facts (don't relearn these)
 
@@ -77,9 +79,14 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 - **Store:** Supabase Postgres table `sleep_jobs`, in the **same DB footage-collector uses**
   (FC's table is `footage_jobs` — no collision). 7-day retention after ClickUp
   marks done.
-- **Dashboard:** `/jobs` page (`components/jobs/`), header **Jobs** link + ready
-  badge. `GET /api/jobs` lists + re-checks ClickUp (hides complete/deleted).
-  `POST /api/jobs/[taskId]` `{ action: retry|cancel|delete }`.
+- **Dashboard:** `/jobs` is the **one** screen (the old `/renders` now
+  redirects here). `GET /api/jobs` returns live job rows **plus** every finished
+  render from the last 7 days, grouped by channel. A render whose job ClickUp
+  marked complete (so the job row is hidden) is re-attached via `listAllJobs()`
+  keyed on `renders[0].renderId`, so its ClickUp + "Open project" links survive;
+  headless renders with no job show under "Unassigned". Rows offer Watch (browser)
+  / MP4 (download) / Uploaded toggle / Delete. `POST /api/jobs/[taskId]`
+  `{ action: retry|cancel|delete }`.
 - **Hydration:** opening `/scenes?job=<taskId>` runs `JobHydrator`, which polls
   the job and loads the prebaked `WorkflowExport` through the existing
   import path — so images + audio persist for re-render and thumbnail picking.
@@ -110,10 +117,10 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
 
 ## Where to look
 
-- `docs/CHANGELOG.md` — dated history, newest first, **current month only**;
-  finished months live in `docs/changelog/YYYY-MM.md` and are linked from its
-  Archive section. The *why* behind most of
-  the odd-looking decisions in here is in there.
+- `docs/CHANGELOG.md` — the **index** only. Every month, current one included,
+  is its own file `docs/changelog/YYYY-MM.md`, newest first; add new entries to
+  the current month's file, not the index. The *why* behind most of the
+  odd-looking decisions is in there.
 - `agents/` — Python agent layer (`script_context`, `scene_director`) +
   `agents/CLAUDE.md` for its operating rules. **This is the production scene
   path**; `lib/scene-engine/script-to-scenes.ts` is the orchestrator that cuts
@@ -155,6 +162,8 @@ to both with the same contract. Lives in `lib/jobs/` + `app/api/jobs/`.
   `sound-effects.ts` (the ambient-bed labels). Was `lib/remotion/`; renamed
   2026-07-31 because nothing in it had touched Remotion since Lambda was deleted.
 - `lib/jobs/` — ingest worker, Supabase store, ClickUp/Baserow clients, board config.
-- `app/api/render/*` — start a render + poll progress; `app/api/renders` lists the
-  last 7 days from our bucket.
+- `app/api/render/*` — start a render + poll progress. `app/api/renders` still
+  lists the last 7 days from our bucket (POST toggles the uploaded flag, DELETE
+  removes a take); `/api/jobs` folds those renders into the unified dashboard, and
+  the `/render` editor step still embeds `RenderHistory`.
 - `app/api/jobs/*` — ingest, job list, per-job control.

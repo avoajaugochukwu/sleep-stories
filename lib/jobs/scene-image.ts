@@ -124,7 +124,12 @@ async function generateOnce(
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
-    const res = await fetch(`${IMAGE_API_BASE}/status/${job_id}`, { headers });
+    let res: Response;
+    try {
+      res = await fetch(`${IMAGE_API_BASE}/status/${job_id}`, { headers });
+    } catch {
+      continue; // network blip — keep polling until deadline, like a 5xx
+    }
     if (!res.ok) continue; // transient; keep polling until deadline
     const status = (await res.json()) as {
       status: string;

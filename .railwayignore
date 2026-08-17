@@ -1,0 +1,12 @@
+# Kept OUT of the `railway up` upload (gitignore syntax). These are tracked in
+# git but the web app never serves them, and shipping them blew the upload past
+# Cloudflare's limit (413 Payload Too Large at ~224MB).
+#
+#  - public/overlays, public/sound-effects (~180MB): baked into the Modal
+#    renderer image at Modal-deploy time (render-modal/modal_app.py add_local_dir),
+#    NOT served by this Next app. The Modal deploy reads them from the local repo,
+#    which this file does not affect — only `railway up` does.
+#  - docs (~42MB): changelog + design notes, nothing runtime needs.
+public/overlays
+public/sound-effects
+docs

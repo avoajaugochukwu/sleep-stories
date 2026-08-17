@@ -27,6 +27,30 @@ const POLL_TIMEOUT_MS = 25 * 60 * 1000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * fetch with a few retries on transient failures — a network throw or a 5xx from
+ * the Whisper Modal container (cold start, worker restart, proxy blip). A single
+ * such blip used to fail the whole job at the poll, throwing away a run whose
+ * images were all done. A 4xx is a real client error and returns straight
+ * through so the caller still fails fast on it.
+ * ponytail: 4 tries, linear backoff; enough for a cold-start blip, bounded well
+ * under the poll deadline.
+ */
+async function fetchResilient(url: string, init?: RequestInit, tries = 4): Promise<Response> {
+  let lastErr: unknown = new Error("no attempt made");
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok || res.status < 500) return res; // success, or a real 4xx
+      lastErr = new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+    } catch (e) {
+      lastErr = e; // network-level failure
+    }
+    if (i < tries - 1) await sleep(2000 * (i + 1));
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+/**
  * Transcribe narration to word-level timestamps.
  *
  * Uses the async job endpoint, not `/v1/transcribe`: a 78-minute file is ~2-3
@@ -46,7 +70,7 @@ export async function transcribe(audioUrl: string): Promise<WhisperWord[]> {
   const name = audioUrl.split("/").pop()?.split("?")[0] || "audio.mp3";
   form.append("file", new Blob([bytes], { type: contentType }), name);
 
-  const submit = await fetch(`${WHISPER_URL}/v1/jobs`, {
+  const submit = await fetchResilient(`${WHISPER_URL}/v1/jobs`, {
     method: "POST",
     body: form,
   });
@@ -61,7 +85,7 @@ export async function transcribe(audioUrl: string): Promise<WhisperWord[]> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_MS);
-    const res = await fetch(`${WHISPER_URL}/v1/jobs/${jobId}`);
+    const res = await fetchResilient(`${WHISPER_URL}/v1/jobs/${jobId}`);
     if (!res.ok) {
       throw new Error(`whisper poll failed (${res.status}) for job ${jobId}`);
     }
