@@ -331,23 +331,9 @@ def _build_filter(job):
                  f"fontcolor=0xEEF0FF@0.92:fontsize=46:x=w*0.07:y=h*0.87-text_h:"
                  f"shadowcolor=black@0.8:shadowx=0:shadowy=2:alpha='{a}'[cap]")
         base = "cap"
-    if job.get("title_lines"):
-        g = job["gstart_sec"]
-        a = (f"if(lt({g}+t,{TITLE_FADE_IN}),({g}+t)/{TITLE_FADE_IN},"
-             f"if(lt({g}+t,{TITLE_FADE_IN + TITLE_HOLD}),1,"
-             f"if(lt({g}+t,{TITLE_TOTAL}),1-(({g}+t)-{TITLE_FADE_IN + TITLE_HOLD})/{TITLE_FADE_OUT},0)))")
-        lines = job["title_lines"]
-        n = len(lines)
-        for k, lf in enumerate(lines):
-            # Stack as a vertically centered block; each line centered on its own
-            # width. Offset from frame center by whole line-heights.
-            dy = (k - (n - 1) / 2) * TITLE_LH
-            y = f"(h-text_h)/2+({dy})"
-            nxt = f"ti{k}"
-            p.append(f"[{base}]drawtext=fontfile={FONT}:textfile={lf}:"
-                     f"fontcolor=white@0.96:fontsize={TITLE_FS}:x=(w-text_w)/2:y={y}:"
-                     f"shadowcolor=black@0.7:shadowx=0:shadowy=2:alpha='{a}'[{nxt}]")
-            base = nxt
+    # ponytail: opening title card removed 2026-08-19 (looked cheap). Captions
+    # kept. To bring it back, restore the drawtext block from git + the
+    # title_lines writer in render_one.
     return inputs, ";".join(p), base
 
 
@@ -365,13 +351,6 @@ def render_one(job):
     if job.get("caption"):
         job["cap_file"] = f"{WORK}/cap{i}.txt"
         open(job["cap_file"], "w").write(job["caption"])
-    if job.get("title"):
-        job["title_lines"] = []
-        for k, ln in enumerate(_wrap_title(job["title"])):
-            fp = f"{WORK}/title{i}_{k}.txt"
-            open(fp, "w").write(ln)
-            job["title_lines"].append(fp)
-
     inputs, fc, out_label = _build_filter(job)
     out = f"{WORK}/clip{i:04d}.mp4"
     _sh(["ffmpeg", "-y", *inputs, "-filter_complex", fc, "-map", f"[{out_label}]",
