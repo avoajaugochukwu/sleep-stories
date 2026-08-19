@@ -34,6 +34,13 @@ export const BOARDS: Record<string, BoardConfig> = {
     listId: "901114309009",
     label: "Space Sleep Journey",
   },
+  // Third sleep channel, added 2026-08-19. ClickUp list is named "Twilight Tales"
+  // in the same "Projects" folder; the channel is "Sleep Twilight Tales".
+  // https://app.clickup.com/9011731879/v/l/li/901114026301
+  "901114026301": {
+    listId: "901114026301",
+    label: "Sleep Twilight Tales",
+  },
 };
 
 export function boardForList(listId: string | null | undefined): BoardConfig | null {
